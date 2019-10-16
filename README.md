@@ -3,9 +3,14 @@
 一个基于酷Q和CoolQ HTTP API插件的QQ机器人Nodejs开发框架。
 
 - 支持多命令匹配、命令自定义解析
+
 - 支持会话上下文功能
+
 - 支持多机器人运行
+
 - and more ...
+
+  
 
 ## 准备
 
@@ -123,7 +128,7 @@ robot.start(); // 启动
 | commands   | Command[]  | 需要注册的命令                                         |          |
 | session    | Session    | 传入该参数运行使用session函数                          | optional |
 | secret     | string     | 须和HTTP插件配置文件值保持一致，用于对上报数据进行验证 | optional |
-| context    | object     | 该属性可在Command类内被访问，默认值为null              | optional |
+| context    | any     | 该属性可在Command子类内被访问，默认值为null              | optional |
 
 `CreateReturn`：该函数的返回值是一个对象，包含如下属性
 
@@ -148,10 +153,10 @@ import {ParseParams, ParseReturn, UserHandlerParams, GroupHandlerParams, Session
 
 class MyCommand extends Command {
     // 下面属性可直接使用this.xx形式访问
-    // context
-    // httpPlugin
+    // context //值为RobotFactory.create传入的内容，默认为null
+    // httpPlugin //值为RobotFactory.create传入的内容
     
-    // 下面属性在无法在parse函数执行阶段使用
+    // 下面属性在无法在parse函数执行阶段被访问
     // data // 该值为parse函数的返回值
     
     // [下面的directive函数和parse函数必须至少提供一个]
@@ -199,7 +204,6 @@ class MyCommand extends Command {
 `user`函数、`group`函数、session函数的返回值格式：
 
 - 无返回值或是返回了`undefined`：表示处理完毕，但不返回任何消息
-
 - `{atSender:boolean, content: string}`：为一个对象时，`atSender`表示是否艾特发送者(仅群聊有效)，`content`为响应内容
 - `string[]`：表示连续响应多条消息
 - `string`：表示响应一条不艾特发送者的消息
@@ -243,7 +247,7 @@ group() {} // 除了群号为4444的群不能触发该命令，其他群都可�
 
 - `TriggerType.at` (默认值)：用户必须艾特机器人并发送消息方可触发命令
 - `TriggerType.noAt`：用户之间在群内发送消息可触发命令，艾特机器人即使命令正确也不会触发
--  `TriggerType.both`：艾特或者不艾特机器人都可触发命令
+- `TriggerType.both`：艾特或者不艾特机器人都可触发命令
 
 ```js
 @trigger(TriggerType.noAt)

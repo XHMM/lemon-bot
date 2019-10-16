@@ -10,14 +10,14 @@ import { CQHelper } from './CQHelper';
 import { Session, SessionData } from './Session';
 import { getMessageFromTypeFromRequest, getMessageFromTypeFromNumbers, MessageFromType } from './utils';
 
-interface CreateParams {
+interface CreateParams<C = unknown> {
   port: number;
   robot: number;
   httpPlugin: HttpPlugin;
   commands: Command[];
   session?: Session | null;
   secret?: string;
-  context?: Record<string, any> | null; // 该对象下内容可在XxxCommand里使用this.context.xx访问
+  context?: C; // 该对象下内容可在XxxCommand里使用this.context.xx访问
 }
 interface CreateReturn {
   start(): Promise<void>;
@@ -46,15 +46,15 @@ export class RobotFactory {
   // 不同端口和对应的node服务器
   private static appsMap: AppsMap = {};
 
-  public static create({
+  public static create<C>({
     port,
     robot,
     httpPlugin,
     commands,
     session = null,
     secret = '',
-    context = null
-  }: CreateParams): CreateReturn {
+    context
+  }: CreateParams<C>): CreateReturn {
     // note: Object.keys(obj)返回的都是字符串类型！
 
     {
@@ -67,14 +67,10 @@ export class RobotFactory {
       }
       if (hasRepeat(allDirectives)) throw new Error('所有的Command对象间的指令不能重复');
 
-      // ----- 验证context是否为对象
-      if (context) assertType(context, 'object');
-
       // ----- 验证robotQQ是否合法
-      if (Object.keys(RobotFactory.commandsMap).includes(robot + '')) throw new Error('机器人已存在');
+      if (Object.keys(RobotFactory.commandsMap).includes(robot + '')) throw new Error(`机器人${robot}已存在，不可重复创建`);
 
       // ----- 注册信息
-      console.info('\n');
       console.info(`Robot ${robot}:`);
       if (session) console.info(` - [功能] session函数处理已启用`);
       else console.info(` - [功能] session函数处理未开启`);
@@ -86,7 +82,7 @@ export class RobotFactory {
             command.scope === Scope.user ? '' : `是否艾特:${command.triggerType ? command.triggerType : TriggerType.at}`
           }`
         );
-        command.context = context; // 注册context
+        command.context = context || null; // 注册context
         command.httpPlugin = httpPlugin; // 注册httpPlugin
       }
       console.info('\n');

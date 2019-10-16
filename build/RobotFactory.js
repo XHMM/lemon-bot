@@ -56,7 +56,7 @@ var RobotFactory = (function () {
     }
     RobotFactory.create = function (_a) {
         var _this = this;
-        var port = _a.port, robot = _a.robot, httpPlugin = _a.httpPlugin, commands = _a.commands, _b = _a.session, session = _b === void 0 ? null : _b, _c = _a.secret, secret = _c === void 0 ? '' : _c, _d = _a.context, context = _d === void 0 ? null : _d;
+        var port = _a.port, robot = _a.robot, httpPlugin = _a.httpPlugin, commands = _a.commands, _b = _a.session, session = _b === void 0 ? null : _b, _c = _a.secret, secret = _c === void 0 ? '' : _c, context = _a.context;
         {
             var allDirectives = [];
             for (var _i = 0, commands_1 = commands; _i < commands_1.length; _i++) {
@@ -68,20 +68,17 @@ var RobotFactory = (function () {
             }
             if (utils_1.hasRepeat(allDirectives))
                 throw new Error('所有的Command对象间的指令不能重复');
-            if (context)
-                utils_1.assertType(context, 'object');
             if (Object.keys(RobotFactory.commandsMap).includes(robot + ''))
-                throw new Error('机器人已存在');
-            console.info('\n');
+                throw new Error("\u673A\u5668\u4EBA" + robot + "\u5DF2\u5B58\u5728\uFF0C\u4E0D\u53EF\u91CD\u590D\u521B\u5EFA");
             console.info("Robot " + robot + ":");
             if (session)
                 console.info(" - [\u529F\u80FD] session\u51FD\u6570\u5904\u7406\u5DF2\u542F\u7528");
             else
                 console.info(" - [\u529F\u80FD] session\u51FD\u6570\u5904\u7406\u672A\u5F00\u542F");
-            for (var _e = 0, commands_2 = commands; _e < commands_2.length; _e++) {
-                var command = commands_2[_e];
+            for (var _d = 0, commands_2 = commands; _d < commands_2.length; _d++) {
+                var command = commands_2[_d];
                 console.info(" - [\u547D\u4EE4] \u6307\u4EE4\u96C6:" + command.directives.join(',') + "  \u89E3\u6790\u51FD\u6570:" + (command.parse ? '有' : '无') + "  \u4F5C\u7528\u57DF:" + command.scope + "  " + (command.scope === Command_1.Scope.user ? '' : "\u662F\u5426\u827E\u7279:" + (command.triggerType ? command.triggerType : Command_1.TriggerType.at)));
-                command.context = context;
+                command.context = context || null;
                 command.httpPlugin = httpPlugin;
             }
             console.info('\n');

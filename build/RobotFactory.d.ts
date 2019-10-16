@@ -1,14 +1,14 @@
 import { Command } from './Command';
 import { HttpPlugin } from './HttpPlugin';
 import { Session } from './Session';
-interface CreateParams {
+interface CreateParams<C = unknown> {
     port: number;
     robot: number;
     httpPlugin: HttpPlugin;
     commands: Command[];
     session?: Session | null;
     secret?: string;
-    context?: Record<string, any> | null;
+    context?: C;
 }
 interface CreateReturn {
     start(): Promise<void>;
@@ -17,6 +17,6 @@ interface CreateReturn {
 export declare class RobotFactory {
     private static commandsMap;
     private static appsMap;
-    static create({ port, robot, httpPlugin, commands, session, secret, context }: CreateParams): CreateReturn;
+    static create<C>({ port, robot, httpPlugin, commands, session, secret, context }: CreateParams<C>): CreateReturn;
 }
 export {};
