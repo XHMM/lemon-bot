@@ -4,11 +4,10 @@ import { Messages } from './CQHelper';
 import { Numbers } from './Command';
 import { MessageFromType, getMessageFromTypeFromNumbers } from './utils';
 
-type Key = string;
+type SessionKey = string;
 
 export interface SessionData extends Numbers {
   fromType: MessageFromType;
-
   sessionName: string; // 本次会话需要被执行的session函数
   directives: string[]; // 本次会话处理的指令集，可据此判断该session所述类
   historyMessages: Record<string, Messages>; // string是session name
@@ -20,7 +19,7 @@ export class Session {
     this.redisClient = redisClient;
   }
 
-  private static genSessionKey({ fromUser, fromGroup, robot }: Numbers): Key {
+  private static genSessionKey({ fromUser, fromGroup, robot }: Numbers): SessionKey {
     const fromType: MessageFromType = getMessageFromTypeFromNumbers({
       fromUser,
       fromGroup,

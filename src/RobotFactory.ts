@@ -4,7 +4,7 @@ import {
   getType,
   assertType,
 } from '@xhmm/utils';
-import { Command, Scope, TriggerType, SessionHandlerParams } from './Command';
+import { Command, Scope, TriggerType, SessionHandlerParams, Numbers } from './Command';
 import { HttpPlugin } from './HttpPlugin';
 import { CQHelper } from './CQHelper';
 import { Session, SessionData } from './Session';
@@ -144,7 +144,7 @@ export class RobotFactory {
         const userNumber = isAnonymousMessage ? null : req.body.sender.user_id;
         const groupNumber = req.body.group_id;
         const robotNumber = robot;
-        const numbers = {
+        const numbers: Numbers = {
           fromUser: userNumber,
           fromGroup: groupNumber,
           robot: robotNumber,
@@ -263,6 +263,7 @@ export class RobotFactory {
               if (matchGroupScope && group) {
                 replyData = await group({
                   ...baseInfo,
+                  fromGroup: baseInfo.fromGroup!,
                   isAt,
                   setNext: session
                     ? session.setSession.bind(session, numbers, {
@@ -280,6 +281,8 @@ export class RobotFactory {
               if (matchUserScope && user) {
                 replyData = await user({
                   ...baseInfo,
+                  fromUser: baseInfo.fromUser!,
+                  fromGroup: undefined,
                   setNext: session
                     ? session.setSession.bind(session, numbers, {
                         directives,

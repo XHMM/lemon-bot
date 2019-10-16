@@ -37,7 +37,7 @@ type GetGroupMemberListResponse = Array<{
   card_changeable: boolean;
 }>;
 interface GetImageResponse {
-  file: string;
+  file: string;   // 下载后的图片的本地路径
 }
 
 class HttpPluginError extends Error {
@@ -93,7 +93,6 @@ export class HttpPlugin {
     });
   }
 
-  // 返回下载后图片的本地路径
   async downloadImage(cqFile: string): Promise<GetImageResponse> {
     return await this.getResponseData<GetImageResponse>(APIList.get_image, {
       file: cqFile,

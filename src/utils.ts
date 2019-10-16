@@ -3,7 +3,7 @@ import { Numbers } from './Command';
 
 export enum MessageFromType {
   'group' = 'group',
-  'anonymous' = 'anonymous',
+  'anonymous' = 'anonymous', // 群组匿名消息
   'user' = 'user',
   'unhandled' = 'unhandled',
 }

@@ -9,16 +9,18 @@ export enum Scope {
   group = 'group', // 仅在群组内发消息时刻触发该命令
   both = 'both', // 私聊和群内都可触发该命令
 }
+
 // 群组内时命令触发方式
 export enum TriggerType {
   at = 'at', // at表示需要艾特机器人并输入内容方可触发
   noAt = 'noAt', //noAt表示需要直接输入内容不能艾特
   both = 'both', // both表示两种皆可
 }
+
 // 常用的三种号码信息
 export interface Numbers {
   fromUser: number | null; // 为null表明是匿名消息
-  fromGroup: number;
+  fromGroup: number | undefined; // 私聊时无群组信息，为undefined
   robot: number; // 机器人qq
 }
 
@@ -28,25 +30,29 @@ interface BaseParams extends Numbers {
   httpPlugin: HttpPlugin;
 }
 
+// parse函数
 export interface ParseParams extends BaseParams {}
 export type ParseReturn = any;
 
 type SetNextFn = (sessionName: string, expireSeconds?: number) => Promise<void>; // 设置session name和过期时间
 type SetEndFn = () => Promise<void>; // 删除session
 
+// user函数
 export interface UserHandlerParams extends BaseParams {
+  fromUser: number;
+  fromGroup: undefined;
   setNext: SetNextFn;
 }
+// group函数
 export interface GroupHandlerParams extends BaseParams {
+  fromGroup: number;
   isAt: boolean;
   setNext: SetNextFn;
 }
-export interface SessionHandlerParams {
+// session函数
+export interface SessionHandlerParams extends Numbers {
   setNext: SetNextFn;
   setEnd: SetEndFn;
-  fromUser: number | null;
-  fromGroup: number;
-  robot: number;
   messages: Messages;
   historyMessages: Record<string, Messages>;
 }

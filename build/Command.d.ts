@@ -12,7 +12,7 @@ export declare enum TriggerType {
 }
 export interface Numbers {
     fromUser: number | null;
-    fromGroup: number;
+    fromGroup: number | undefined;
     robot: number;
 }
 interface BaseParams extends Numbers {
@@ -26,18 +26,18 @@ export declare type ParseReturn = any;
 declare type SetNextFn = (sessionName: string, expireSeconds?: number) => Promise<void>;
 declare type SetEndFn = () => Promise<void>;
 export interface UserHandlerParams extends BaseParams {
+    fromUser: number;
+    fromGroup: undefined;
     setNext: SetNextFn;
 }
 export interface GroupHandlerParams extends BaseParams {
+    fromGroup: number;
     isAt: boolean;
     setNext: SetNextFn;
 }
-export interface SessionHandlerParams {
+export interface SessionHandlerParams extends Numbers {
     setNext: SetNextFn;
     setEnd: SetEndFn;
-    fromUser: number | null;
-    fromGroup: number;
-    robot: number;
     messages: Messages;
     historyMessages: Record<string, Messages>;
 }

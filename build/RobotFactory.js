@@ -242,7 +242,7 @@ var RobotFactory = (function () {
                             command.data = parsedData || null;
                             replyData = void 0;
                             if (!(matchGroupScope && group)) return [3, 13];
-                            return [4, group(__assign(__assign({}, baseInfo), { isAt: isAt, setNext: session
+                            return [4, group(__assign(__assign({}, baseInfo), { fromGroup: baseInfo.fromGroup, isAt: isAt, setNext: session
                                         ? session.setSession.bind(session, numbers, {
                                             directives: directives,
                                             historyMessages: {
@@ -256,7 +256,7 @@ var RobotFactory = (function () {
                             _e.label = 13;
                         case 13:
                             if (!(matchUserScope && user)) return [3, 15];
-                            return [4, user(__assign(__assign({}, baseInfo), { setNext: session
+                            return [4, user(__assign(__assign({}, baseInfo), { fromUser: baseInfo.fromUser, fromGroup: undefined, setNext: session
                                         ? session.setSession.bind(session, numbers, {
                                             directives: directives,
                                             historyMessages: {
