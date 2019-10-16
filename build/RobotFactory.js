@@ -82,6 +82,7 @@ var RobotFactory = (function () {
                 var command = commands_2[_e];
                 console.info(" - [\u547D\u4EE4] \u6307\u4EE4\u96C6:" + command.directives.join(',') + "  \u89E3\u6790\u51FD\u6570:" + (command.parse ? '有' : '无') + "  \u4F5C\u7528\u57DF:" + command.scope + "  " + (command.scope === Command_1.Scope.user ? '' : "\u662F\u5426\u827E\u7279:" + (command.triggerType ? command.triggerType : Command_1.TriggerType.at)));
                 command.context = context;
+                command.httpPlugin = httpPlugin;
             }
             console.info('\n');
             RobotFactory.commandsMap[robot + ''] = {
@@ -171,7 +172,7 @@ var RobotFactory = (function () {
                                 : noSessionError;
                             setEnd = session ? session.removeSession.bind(session, numbers) : noSessionError;
                             sessionHandlerParams = __assign(__assign({ setNext: setNext,
-                                setEnd: setEnd }, numbers), { messages: messages, historyMessages: sessionData.historyMessages });
+                                setEnd: setEnd }, numbers), { messages: messages, stringMessages: CQHelper_1.CQHelper.toTextString(messages), historyMessages: sessionData.historyMessages });
                             replyData = command["session" + sessionData.sessionName].call(command, sessionHandlerParams);
                             messageFromType_1 = utils_2.getMessageFromTypeFromNumbers(numbers);
                             return [4, handleReplyData(res, replyData, {
@@ -225,7 +226,7 @@ var RobotFactory = (function () {
                             if (!canThisNumberUse)
                                 return [3, 17];
                             parsedData = null;
-                            baseInfo = __assign({ directives: directives, messages: messages, httpPlugin: httpPlugin }, numbers);
+                            baseInfo = __assign({ directives: directives, messages: messages, stringMessages: CQHelper_1.CQHelper.toTextString(messages), httpPlugin: httpPlugin }, numbers);
                             if (!parse) return [3, 10];
                             return [4, parse(__assign({}, baseInfo))];
                         case 9:

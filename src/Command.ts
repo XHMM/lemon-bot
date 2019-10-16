@@ -24,10 +24,9 @@ export interface Numbers {
   robot: number; // 机器人qq
 }
 
-interface BaseParams extends Numbers {
-  directives: string[];
+interface BaseParams extends Numbers{
   messages: Messages;
-  httpPlugin: HttpPlugin;
+  stringMessages: string;
 }
 
 // parse函数
@@ -50,11 +49,10 @@ export interface GroupHandlerParams extends BaseParams {
   setNext: SetNextFn;
 }
 // session函数
-export interface SessionHandlerParams extends Numbers {
+export interface SessionHandlerParams extends BaseParams {
   setNext: SetNextFn;
   setEnd: SetEndFn;
-  messages: Messages;
-  historyMessages: Record<string, Messages>;
+  historyMessages: Record<string, Messages>; // { user/group: [..],  sessionName1: [..],  sessionName2: [..]}
 }
 export type HandlerReturn =
   | {
@@ -68,10 +66,11 @@ export type HandlerReturn =
 type OrPromise<T> = T | Promise<T>;
 
 export abstract class Command<C = unknown, D = unknown> {
-  context: C; // 在RobotFactory中被注入，值为create时传入的内容，默认为null
-  data: D; // 在RobotFactory中被注入，值为parse函数的返回值，默认为null
-
-  directives: string[]; // 使用Command.normalizeDirectives函数进行填充
+  // 下述属性是在node启动后被注入给了实例对象，之后不会再改变
+  scope: Scope; // // [在该类构造函数内被注入] 使用该属性来判断该命令的作用域
+  directives: string[]; // [在create阶段使用该类Command.normalizeDirectives函数被注入]
+  context: C; // [在create阶段被注入] 值为create时传入的内容，默认为null
+  httpPlugin: HttpPlugin; // [在create阶段被注入] 值为create时传入的内容
 
   includeGroup?: number[]; // 给group函数使用@include注入
   excludeGroup?: number[]; // 给group函数使用@exclude注入
@@ -79,7 +78,8 @@ export abstract class Command<C = unknown, D = unknown> {
   excludeUser?: number[]; // 给user函数使用@exclude注入
   triggerType?: TriggerType; // 给group使用@trigger进行设置，默认按at处理。请勿对其赋值，会导致修饰器无效！！！
 
-  scope: Scope; // // 在构造函数内被初始化。使用该属性来判断该命令的作用域
+  // 下述属性是在接收到http请求后被给实例对象，因此该值是动态变化的
+  data: D; // [在请求处理中被注入] 值为parse函数的返回值，默认为null
 
   constructor() {
     if (this.directive) assertType(this.directive, 'function');

@@ -87,6 +87,7 @@ export class RobotFactory {
           }`
         );
         command.context = context; // 注册context
+        command.httpPlugin = httpPlugin; // 注册httpPlugin
       }
       console.info('\n');
       RobotFactory.commandsMap[robot + ''] = {
@@ -186,7 +187,8 @@ export class RobotFactory {
                 setEnd,
                 ...numbers,
                 messages,
-                historyMessages: sessionData.historyMessages,
+                stringMessages: CQHelper.toTextString(messages),
+                historyMessages: sessionData.historyMessages
               };
               const replyData = command[`session${sessionData.sessionName}`].call(command, sessionHandlerParams);
               const messageFromType = getMessageFromTypeFromNumbers(numbers);
@@ -241,6 +243,7 @@ export class RobotFactory {
               const baseInfo = {
                 directives: directives,
                 messages: messages,
+                stringMessages: CQHelper.toTextString(messages),
                 httpPlugin: httpPlugin,
                 ...numbers,
               };

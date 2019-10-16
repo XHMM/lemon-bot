@@ -16,9 +16,8 @@ export interface Numbers {
     robot: number;
 }
 interface BaseParams extends Numbers {
-    directives: string[];
     messages: Messages;
-    httpPlugin: HttpPlugin;
+    stringMessages: string;
 }
 export interface ParseParams extends BaseParams {
 }
@@ -35,10 +34,9 @@ export interface GroupHandlerParams extends BaseParams {
     isAt: boolean;
     setNext: SetNextFn;
 }
-export interface SessionHandlerParams extends Numbers {
+export interface SessionHandlerParams extends BaseParams {
     setNext: SetNextFn;
     setEnd: SetEndFn;
-    messages: Messages;
     historyMessages: Record<string, Messages>;
 }
 export declare type HandlerReturn = {
@@ -47,15 +45,16 @@ export declare type HandlerReturn = {
 } | string[] | string | void;
 declare type OrPromise<T> = T | Promise<T>;
 export declare abstract class Command<C = unknown, D = unknown> {
-    context: C;
-    data: D;
+    scope: Scope;
     directives: string[];
+    context: C;
+    httpPlugin: HttpPlugin;
     includeGroup?: number[];
     excludeGroup?: number[];
     includeUser?: number[];
     excludeUser?: number[];
     triggerType?: TriggerType;
-    scope: Scope;
+    data: D;
     constructor();
     static normalizeDirectives(cmd: Command): void;
     directive?(): string[];
