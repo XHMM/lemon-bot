@@ -3,6 +3,7 @@ import { assertType } from '@xhmm/utils';
 import { Messages } from './CQHelper';
 import { Numbers } from './Command';
 import { MessageFromType, getMessageFromTypeFromNumbers } from './utils';
+import { Logger } from './Logger';
 
 type SessionKey = string;
 
@@ -66,6 +67,6 @@ export class Session {
 
   async removeSession(params: Numbers): Promise<void> {
     await this.redisClient.del(Session.genSessionKey(params));
-    console.info('[消息处理] session会话结束')
+    Logger.debug('[消息处理] session会话结束')
   }
 }

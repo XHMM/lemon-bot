@@ -1,14 +1,11 @@
 import { Express, Request, Response } from 'express';
-import {
-  hasRepeat,
-  getType,
-  assertType,
-} from '@xhmm/utils';
+import { hasRepeat, getType, assertType } from '@xhmm/utils';
 import { Command, Scope, TriggerType, SessionHandlerParams, Numbers } from './Command';
 import { HttpPlugin } from './HttpPlugin';
 import { CQHelper } from './CQHelper';
 import { Session, SessionData } from './Session';
 import { getMessageFromTypeFromRequest, getMessageFromTypeFromNumbers, MessageFromType } from './utils';
+import { Logger } from './Logger';
 
 interface CreateParams<C = unknown> {
   port: number;
@@ -53,7 +50,7 @@ export class RobotFactory {
     commands,
     session = null,
     secret = '',
-    context
+    context,
   }: CreateParams<C>): CreateReturn {
     // note: Object.keys(obj)返回的都是字符串类型！
 
@@ -68,14 +65,15 @@ export class RobotFactory {
       if (hasRepeat(allDirectives)) throw new Error('所有的Command对象间的指令不能重复');
 
       // ----- 验证robotQQ是否合法
-      if (Object.keys(RobotFactory.commandsMap).includes(robot + '')) throw new Error(`机器人${robot}已存在，不可重复创建`);
+      if (Object.keys(RobotFactory.commandsMap).includes(robot + ''))
+        throw new Error(`机器人${robot}已存在，不可重复创建`);
 
       // ----- 注册信息
-      console.info(`Robot ${robot}:`);
-      if (session) console.info(` - [功能] session函数处理已启用`);
-      else console.info(` - [功能] session函数处理未开启`);
+      Logger.debug(`Robot ${robot}:`);
+      if (session) Logger.debug(` - [功能] session函数处理已启用`);
+      else Logger.debug(` - [功能] session函数处理未开启`);
       for (const command of commands) {
-        console.info(
+        Logger.debug(
           ` - [命令] 指令集:${command.directives.join(',')}  解析函数:${command.parse ? '有' : '无'}  作用域:${
             command.scope
           }  ${
@@ -85,7 +83,7 @@ export class RobotFactory {
         command.context = context || null; // 注册context
         command.httpPlugin = httpPlugin; // 注册httpPlugin
       }
-      console.info('\n');
+      Logger.debug('\n');
       RobotFactory.commandsMap[robot + ''] = {
         commands: commands,
         port,
@@ -105,7 +103,7 @@ export class RobotFactory {
 
       app.post('/coolq', async (req: Request, res: Response) => {
         if (+req.header('X-Self-ID')! !== robot) {
-          console.info('[请求终止] 请求来源和当前机器人不符，不做处理');
+          Logger.debug('[请求终止] 请求来源和当前机器人不符，不做处理');
           res.end();
           return;
         }
@@ -118,7 +116,7 @@ export class RobotFactory {
           hmac.update(JSON.stringify(req.body));
           const test = hmac.digest('hex');
           if (test !== signature) {
-            console.info('[请求终止] 消息体与签名不符，结束');
+            Logger.debug('[请求终止] 消息体与签名不符，结束');
             res.end();
             return;
           }
@@ -130,7 +128,7 @@ export class RobotFactory {
         const messages = req.body.message && CQHelper.normalizeMessage(req.body.message);
         const messageFromType = getMessageFromTypeFromRequest(req);
         if (messageFromType === 'unhandled') {
-          console.info('[请求终止]  非聊天类消息，不做处理');
+          Logger.debug('[请求终止]  非聊天类消息，不做处理');
           res.end();
           return;
         }
@@ -184,7 +182,7 @@ export class RobotFactory {
                 ...numbers,
                 messages,
                 stringMessages: CQHelper.toTextString(messages),
-                historyMessages: sessionData.historyMessages
+                historyMessages: sessionData.historyMessages,
               };
               const replyData = command[`session${sessionData.sessionName}`].call(command, sessionHandlerParams);
               const messageFromType = getMessageFromTypeFromNumbers(numbers);
@@ -196,7 +194,7 @@ export class RobotFactory {
                 groupNumber,
                 httpPlugin,
               });
-              console.info(`[消息处理] 使用session${sessionData.sessionName}函数处理完毕`);
+              Logger.debug(`[消息处理] 使用session${sessionData.sessionName}函数处理完毕`);
               return;
             }
           }
@@ -261,22 +259,20 @@ export class RobotFactory {
 
               let replyData;
               // 若提供了both函数，则不再调用user/group函数
-              if ((matchUserScope||matchGroupScope) && both) {
+              if ((matchUserScope || matchGroupScope) && both) {
                 replyData = await both({
                   ...baseInfo,
                   messageFromType: getMessageFromTypeFromNumbers(numbers),
                   setNext: session
                     ? session.setSession.bind(session, numbers, {
-                      directives,
-                      historyMessages: {
-                        both: messages,
-                      },
-                    })
-                    : noSessionError
+                        directives,
+                        historyMessages: {
+                          both: messages,
+                        },
+                      })
+                    : noSessionError,
                 });
-                console.info(
-                  `[消息处理] 使用both函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
-                );
+                Logger.debug(`[消息处理] 使用both函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`);
               } else {
                 if (matchGroupScope && group) {
                   replyData = await group({
@@ -285,14 +281,14 @@ export class RobotFactory {
                     isAt,
                     setNext: session
                       ? session.setSession.bind(session, numbers, {
-                        directives,
-                        historyMessages: {
-                          group: messages,
-                        },
-                      })
+                          directives,
+                          historyMessages: {
+                            group: messages,
+                          },
+                        })
                       : noSessionError,
                   });
-                  console.info(
+                  Logger.debug(
                     `[消息处理] 使用group函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
                   );
                 }
@@ -303,14 +299,14 @@ export class RobotFactory {
                     fromGroup: undefined,
                     setNext: session
                       ? session.setSession.bind(session, numbers, {
-                        directives,
-                        historyMessages: {
-                          user: messages,
-                        },
-                      })
+                          directives,
+                          historyMessages: {
+                            user: messages,
+                          },
+                        })
                       : noSessionError,
                   });
-                  console.info(
+                  Logger.debug(
                     `[消息处理] 使用user函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
                   );
                 }
@@ -341,10 +337,10 @@ export class RobotFactory {
           app
             .listen(port, () => {
               resolve();
-              console.info(`[普通日志] http server listening on http://localhost:${port}/coolq\n`);
+              Logger.debug(`[普通日志] http server listening on http://localhost:${port}/coolq\n`);
             })
             .on('error', err => {
-              console.error(err);
+              Logger.error(err);
               reject(err);
             });
         } else {
@@ -407,8 +403,7 @@ async function handleReplyData(
         at_sender: false,
         reply: str as string,
       });
-    else
-      res.end();
+    else res.end();
     return;
   }
 }
