@@ -31,29 +31,29 @@ export class Logger {
     },
   });
 
-  static setDebugLabel(label: string) {
+  static setDebugLabel(label: string): void {
     Logger.debugLogger = Logger.debugLogger.scope(Logger.prefix,label);
   }
-  static clearDebugLabel(label: string) {
+  static clearDebugLabel(label: string): void {
     Logger.debugLogger = Logger.debugLogger.scope(Logger.prefix,label);
   }
 
-  static enableDebug() {
+  static enableDebug(): void {
     Logger.debugLogger.enable();
   }
-  static disableDebug() {
+  static disableDebug(): void {
     Logger.debugLogger.disable();
   }
 
-  static debug(...msg: any[]) {
+  static debug(...msg: any[]): void {
     Logger.debugLogger.debug(...msg);
   }
 
-  static warn(...msg: any[]) {
+  static warn(...msg: any[]): void {
     Logger.logger.warn(...msg);
   }
 
-  static error(...msg: any[]) {
+  static error(...msg: any[]): void {
     Logger.logger.error(...msg);
   }
 }

@@ -164,7 +164,7 @@ import { Command} from 'lemon-bot';
 import {ParseParams, ParseReturn, UserHandlerParams, GroupHandlerParams, SessionHandlerParams, HandlerReturn} from 'lemon-bot'
 
 class MyCommand extends Command<C, D> {
-    context: C;
+	context: C;
     httpPlugin;
     data: D;
     
@@ -175,7 +175,7 @@ class MyCommand extends Command<C, D> {
     // [下面的三个必须至少提供一个]
     user(params: UserHandlerParams): HandlerReturn
     group(params: GroupHandlerParams): HandlerReturn
-    both(params: BothHandlerParams): HandlerReturn
+	both(params: BothHandlerParams): HandlerReturn
     
     // [下面的函数都是以session开头，可提供任意多个，详见下方文档描述]
     sessionA(params: SessionParams): HandlerReturn
@@ -243,7 +243,7 @@ class MyCommand extends Command<C, D> {
 | fromGroup       | number\|undefined                                            | 发送消息者所在的Q群，使用`user`函数时该值为undefined         | all                     |
 | robot           | number                                                       | 消息处理机器人                                               | all                     |
 | isAt            | boolean                                                      | 是否艾特了机器人                                             | group                   |
-| messageFromType | enum MessageFromType                                              | 消息来自方：group值群聊, anonymous指群内匿名聊, user指独聊   | both                    |
+| messageFromType | MessageFromType                                              | 消息来自方：group值群聊, anonymous指群内匿名聊, user指独聊   | both                    |
 | setEnd          | () => Promise<void>                                          | 异步函数，设置会话上下文结束                                 | session                 |
 | historyMessages | Record<string, Messages>                                     | 一个对象，保存了历史会话消息，其中key的值为`group`或`user`和`setNext`指定的名称 | session                 |
 | setNext         | (sessionName: string, expireSeconds?: number) => Promise<void> | 异步函数，设置下一个需要执行的session函数                    | user,group,both,session |
@@ -470,6 +470,30 @@ robot.start();
 - "测试"：将重新从`user`开始解析。(注意`count`的值已经变成了0)
 
 在session存在期间，即使发给机器人的消息满足其他命令的处理条件，但并不会执行他们，知道session过期或结束。
+
+
+
+### Class Logger
+
+控制日志打印。
+
+#### static enableDebug()
+
+开启开发日志输出。
+
+#### static disableDebug()
+
+关闭开发日志输出。
+
+
+Example：
+
+```js
+if (process.env.NODE_ENV === 'development')
+	Logger.enableDebug();
+else
+    Logger.disableDebug();
+```
 
 
 
