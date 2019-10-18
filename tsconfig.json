@@ -13,6 +13,6 @@
     "removeComments": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "package.json"],
+  "include": ["src"],
   "exclude": ["node_modules"]
 }

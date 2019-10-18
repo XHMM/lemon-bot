@@ -1,8 +1,7 @@
 import signale, { Signale } from 'signale';
-import { name } from '../package.json';
 
 export class Logger {
-  private static prefix = name
+  private static prefix = "lemon-bot"
   // 框架开发环境下打印时使用该logger
   private static debugLogger: typeof signale = new Signale({
     scope: Logger.prefix,
