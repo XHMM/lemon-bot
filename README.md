@@ -307,6 +307,21 @@ group() {} // 只有群号为3333的群可触发该命令
 group() {}
 ```
 
+##### scope( triggerScope )
+
+可用于`group`和`both`函数，表示什么身份的用户可触发该命令，可赋值为：
+
+- `TriggerScope.all` (默认值)：所有用户都可触发
+- `TriggerScope.owner`：仅群主可触发
+- `TriggerScope.admin`：仅管理员可触发
+- `TriggerScope.member`：仅普通成员可触发
+- 使用或运算`|`产生组合值：比如`TriggerScope.owner | TriggerScope.admin`表示群主和管理员可触发
+
+```js
+@trigger(TriggerScope.all)
+group() {}
+```
+
 
 
 ### Class CQHelper

@@ -18,6 +18,13 @@ export enum TriggerType {
   noAt = 'noAt', //noAt表示需要直接输入内容不能艾特
   both = 'both', // both表示两种皆可
 }
+// 群组内什么身份可触发
+export enum TriggerScope {
+  'all' = 0b111, // 所有人
+  'owner' = 0b100, // 群主
+  'admin' = 0b010, // 管理员
+  'member' = 0b01, // 普通群员
+}
 
 // 常用的三种号码信息
 export interface Numbers {
@@ -84,6 +91,7 @@ export abstract class Command<C = unknown, D = unknown> {
   includeUser?: number[]; // 给user函数使用@include注入
   excludeUser?: number[]; // 给user函数使用@exclude注入
   triggerType?: TriggerType; // 给group/both使用@trigger进行设置，默认按at处理。请勿对其赋值，会导致修饰器无效！！！
+  triggerScope?: TriggerScope;
 
   // 下述属性是在接收到http请求后被给实例对象，因此该值是动态变化的
   data: D; // [在请求处理中被注入] 值为parse函数的返回值，默认为null
@@ -171,5 +179,16 @@ export function trigger(type: TriggerType) {
     }
     else
       proto.triggerType = type;
+  };
+}
+
+// 用于group和both。设置群组内什么身份可触发命令
+export function scope(role: TriggerScope) {
+  return function(proto, name, descriptor) {
+    if(name !== 'group' || name !== 'both') {
+      Logger.warn("trigger decorator only works with group or both function.")
+    }
+    else
+      proto.triggerScope = role;
   };
 }

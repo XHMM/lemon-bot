@@ -1,6 +1,6 @@
 import { Express, Request, Response } from 'express';
-import { hasRepeat, getType, assertType } from '@xhmm/utils';
-import { Command, Scope, TriggerType, SessionHandlerParams, Numbers } from './Command';
+import { hasRepeat, getType } from '@xhmm/utils';
+import { Command, Scope, TriggerType, SessionHandlerParams, Numbers, TriggerScope } from './Command';
 import { HttpPlugin } from './HttpPlugin';
 import { CQHelper } from './CQHelper';
 import { Session, SessionData } from './Session';
@@ -137,6 +137,7 @@ export class RobotFactory {
         const isUserMessage = messageFromType === 'user';
 
         const userNumber = isAnonymousMessage ? null : req.body.sender.user_id;
+        const userRole = req.body.sender.role || 'member';
         const groupNumber = req.body.group_id;
         const robotNumber = robot;
         const numbers: Numbers = {
@@ -210,6 +211,7 @@ export class RobotFactory {
             const group = command.group && command.group.bind(command);
             const both = command.both && command.both.bind(command);
             const triggerType = command.triggerType || TriggerType.at;
+            const triggerScope = command.triggerScope || TriggerScope.all;
 
             // 该条消息与当前命令的作用域是否对应
             const matchGroupScope =
@@ -217,8 +219,6 @@ export class RobotFactory {
             const matchUserScope = (scope === Scope.user || scope === Scope.both) && isUserMessage;
 
             if (matchGroupScope || matchUserScope) {
-              // -- exclude include条件是否满足，即判断当前用户是否可以触发该命令
-              let canThisNumberUse = true;
               if (matchGroupScope) {
                 // --- 判断触发条件是否满足
                 if (triggerType === TriggerType.at && !isAt) continue;
@@ -227,14 +227,14 @@ export class RobotFactory {
                 if (includeGroup && !includeGroup.includes(groupNumber)) continue;
                 if (excludeGroup && excludeGroup.includes(groupNumber)) continue;
 
-                if (includeGroup && includeGroup.includes(groupNumber)) canThisNumberUse = true;
-                if (excludeGroup && excludeGroup.includes(groupNumber)) canThisNumberUse = false;
+                // 角色权限判断
+                // @ts-ignore
+                if ((TriggerScope[userRole] & triggerScope) !== 1) continue;
               }
               if (matchUserScope) {
-                if (includeUser && includeUser.includes(userNumber)) canThisNumberUse = true;
-                if (excludeUser && excludeUser.includes(userNumber)) canThisNumberUse = false;
+                if (includeUser && !includeUser.includes(userNumber)) continue;
+                if (excludeUser && excludeUser.includes(userNumber)) continue;
               }
-              if (!canThisNumberUse) continue;
 
               // --- 根据指令或解析函数进行处理
               let parsedData = null;
@@ -325,7 +325,6 @@ export class RobotFactory {
             }
           }
         }
-
         res.end();
         return;
       });
