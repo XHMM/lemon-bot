@@ -3,6 +3,7 @@ import { assertType, getType } from '@xhmm/utils';
 import { Messages } from './CQHelper';
 import { HttpPlugin } from './HttpPlugin';
 import { MessageFromType } from './utils';
+import { Logger } from './Logger';
 
 // 命令生效范围
 export enum Scope {
@@ -82,7 +83,7 @@ export abstract class Command<C = unknown, D = unknown> {
   excludeGroup?: number[]; // 给group函数使用@exclude注入
   includeUser?: number[]; // 给user函数使用@include注入
   excludeUser?: number[]; // 给user函数使用@exclude注入
-  triggerType?: TriggerType; // 给group使用@trigger进行设置，默认按at处理。请勿对其赋值，会导致修饰器无效！！！
+  triggerType?: TriggerType; // 给group/both使用@trigger进行设置，默认按at处理。请勿对其赋值，会导致修饰器无效！！！
 
   // 下述属性是在接收到http请求后被给实例对象，因此该值是动态变化的
   data: D; // [在请求处理中被注入] 值为parse函数的返回值，默认为null
@@ -119,33 +120,40 @@ export abstract class Command<C = unknown, D = unknown> {
   directive?(): string[];
   parse?(params: ParseParams): OrPromise<ParseReturn>;
 
-  // 下面三个函数必须提供一个
   user?(params: UserHandlerParams): OrPromise<HandlerReturn>;
   group?(params: GroupHandlerParams): OrPromise<HandlerReturn>;
   both?(params: BothHandlerParams): OrPromise<HandlerReturn>;
 
 }
 
-// 指定该选项时，只有这里面的qq/qq群可触发该命令
+// 用于user和group。指定该选项时，只有这里面的qq/qq群可触发该命令
 // TODO: 后期改为可接受(异步)函数
 export function include(include: number[]) {
   return function(proto, name, descriptor) {
     if (name === 'group') proto.includeGroup = include;
-    if (name === 'user') proto.includeUser = include;
+    else if (name === 'user') proto.includeUser = include;
+    else
+      Logger.warn("include decorator only works with user or group function")
   };
 }
 
-// 指定该选项时，这里面的qq/qq群不可触发该命令。指定该选项则include无效
+// 用于user和group。指定该选项时，这里面的qq/qq群不可触发该命令。指定该选项则include无效
 export function exclude(exclude: number[]) {
   return function(proto, name, descriptor) {
     if (name === 'group') proto.excludeGroup = exclude;
-    if (name === 'user') proto.excludeUser = exclude;
+    else if (name === 'user') proto.excludeUser = exclude;
+    else
+      Logger.warn("exclude decorator only works with user or group function")
   };
 }
 
-// 对group使用有效，设置群组内命令触发方式
+// 用于group和both。设置群组内命令触发方式
 export function trigger(type: TriggerType) {
   return function(proto, name, descriptor) {
-    proto.triggerType = type;
+    if(name !== 'group' || name !== 'both') {
+      Logger.warn("trigger decorator only works with group or both function.")
+    }
+    else
+      proto.triggerType = type;
   };
 }
