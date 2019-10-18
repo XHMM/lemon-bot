@@ -128,7 +128,7 @@ robot.start(); // 启动
 | commands   | Command[]  | 需要注册的命令                                         |          |
 | session    | Session    | 传入该参数运行使用session函数                          | optional |
 | secret     | string     | 须和HTTP插件配置文件值保持一致，用于对上报数据进行验证 | optional |
-| context    | any     | 该属性可在Command子类内被访问，默认值为null              | optional |
+| context    | any        | 该属性可在Command子类内被访问，默认值为null            | optional |
 
 `CreateReturn`：该函数的返回值是一个对象，包含如下属性
 
@@ -136,6 +136,18 @@ robot.start(); // 启动
 | ----- | ----------------- | ----------- |
 | start | ()=>Promise<void> | 启动机器人  |
 | stop  | () => void        | 停止机器人  |
+
+Example：
+
+```js
+const robot = RobotFactory.create({
+  port: 8888,
+  robot: 1326099664,
+  httpPlugin: new HttpPlugin("http://localhost:5700"),
+  commands: [new SimpleCommand()]
+});
+robot.start();
+```
 
 
 
@@ -151,57 +163,99 @@ import { Command} from 'lemon-bot';
 // 导入ts类型定义提升开发体验
 import {ParseParams, ParseReturn, UserHandlerParams, GroupHandlerParams, SessionHandlerParams, HandlerReturn} from 'lemon-bot'
 
-class MyCommand extends Command {
-    // 下面属性可直接使用this.xx形式访问
-    // context //值为RobotFactory.create传入的内容，默认为null
-    // httpPlugin //值为RobotFactory.create传入的内容
-    
-    // 下面属性在无法在parse函数执行阶段被访问
-    // data // 该值为parse函数的返回值
+class MyCommand extends Command<C, D> {
+    context: C;
+    httpPlugin;
+    data: D;
     
     // [下面的directive函数和parse函数必须至少提供一个]
     directive(): string[]
-    // 上述函数无法实现自定义命令解析，若需要手动解析则须提供该函数。若提供了该函数，则不会再使用上述函数进行命令处理。
     parse(params: ParseParams): ParseReturn
 
-    // [下面的user函数和group函数必须至少提供一个]
-    // 提供该函数表示该命令支持用户与机器人直接对话时触发
+    // [下面的三个必须至少提供一个]
     user(params: UserHandlerParams): HandlerReturn
-    // 提供该函数表示该命令支持在群组聊天内被触发
     group(params: GroupHandlerParams): HandlerReturn
-	
-    // [下面的函数都是以session开头，可提供任意多个，从而可以实现上下文功能，具体见文档下方的session函数描述]
+    both(params: BothHandlerParams): HandlerReturn
+    
+    // [下面的函数都是以session开头，可提供任意多个，详见下方文档描述]
     sessionA(params: SessionParams): HandlerReturn
     sessionB(params: SessionParams): HandlerReturn
 }
 ```
 
-`directive`函数返回一个字符串数组。比如返回了一个`["天气", "weather"]`，在没有提供`parse`函数的情况下，当接收到用户消息后，会判断消息内容是否等于"天气"或者"weather"，若相等，则会执行`user`或`parse`函数，若不相等，则会进行下一个命令的判断。
+#### 基本属性：
+
+##### context属性
+
+该实例属性的值为使用`RobotFactory.create`时传给`context`参数的内容，默认为null。
+
+##### httpPlugin属性
+
+该实例属性的值为使用`RobotFactory.create`时传给`httpPlugin`参数的内容。
+
+##### data属性
+
+该实例值为`parse`函数的返回值。因此请勿在`parse`函数内使用该属性。
 
 
 
-`parse`函数、`user`函数、`group`函数、session函数的参数都是一个对象，该对象的属性内容如下（scope列描述了该属性存在于哪些函数，all表示每个函数都有该参数）：
+#### 解析函数：
 
-| key             | type                                                         | description                                                  |                    |
-| --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------ |
-| messages        | Messages                                                     | 二维数组形式表示的用户发来的消息                             | all                |
-| stringMessages  | string                                                       | 字符串形式表示的用户发来的消息 (实际就是`CQHelper.toTextString(messages)`) | all                |
-| fromUser        | number\|null                                                 | 发送消息者的QQ，为null时表明是群内匿名消息                   | all                |
-| fromGroup       | number\|undefined                                            | 发送消息者所在的Q群，使用`user`函数时该值为undefined         | all                |
-| robot           | number                                                       | 消息处理机器人                                               | all                |
-| isAt            | boolean                                                      | 是否艾特了机器人                                             | group              |
-| setNext         | (sessionName: string, expireSeconds?: number) => Promise<void> | 异步函数，设置下一个需要执行的session函数                    | user,group,session |
-| setEnd          | () => Promise<void>                                          | 异步函数，设置会话上下文结束                                 | session            |
-| historyMessages | Record<string, Messages>                                     | 一个对象，保存了历史会话消息，其中key的值为`group`或`user`和`setNext`指定的名称 | session            |
+##### **directive**函数
+
+该函数应返回一个字符串数组。假如它返回了`["天气", "weather"]`，并且你未实现`parse`函数时，当接收到用户消息后，会判断消息内容是否等于"天气"或者"weather"，若相等，则会执行`user`或`parse`或`both`函数，若不相等，则会进行下一个命令的判断。
+
+##### parse函数
+
+上述`directive`函数无法实现自定义命令解析，比如想要获取 "天气 西安" 这一消息中的城市，则需要使用该函数手动处理，该函数的返回值信息会赋给`data`属性，从而可供其他函数访问使用。**警告：**若提供了该函数，则不会再使用`directive`函数进行命令处理。
 
 
 
-`parse`函数的返回值格式：
+#### 处理函数：
+
+##### user函数
+
+提供该函数表示当前命令支持用户与机器人直接对话时的场景。
+
+##### group函数
+
+提供该函数表示当前命令支持处理群组聊天的消息内容。
+
+##### both函数
+
+当你的命令处理逻辑针对用户和群组比较相似时，同时提供`user`和`group`函数会略微繁琐，则可使用该函数来处理。**警告：**若提供了该函数，则`use`和`group`函数会无效。
+
+##### session函数
+
+该函数的功能参见下方[session函数](#class-session)的描述。
+
+
+
+#### 函数参数：
+
+`parse`函数和上述的所有的处理函数的参数都是一个对象，该对象的属性内容如下（scope列描述了该属性存在于哪些函数，all表示每个函数都有该参数）：
+
+| key             | type                                                         | description                                                  | scope                   |
+| --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------- |
+| messages        | Messages                                                     | 二维数组形式表示的用户发来的消息                             | all                     |
+| stringMessages  | string                                                       | 字符串形式表示的用户发来的消息 (实际就是`CQHelper.toTextString(messages)`) | all                     |
+| fromUser        | number\|null                                                 | 发送消息者的QQ，为null时表明是群内匿名消息                   | all                     |
+| fromGroup       | number\|undefined                                            | 发送消息者所在的Q群，使用`user`函数时该值为undefined         | all                     |
+| robot           | number                                                       | 消息处理机器人                                               | all                     |
+| isAt            | boolean                                                      | 是否艾特了机器人                                             | group                   |
+| messageFromType | enum MessageFromType                                              | 消息来自方：group值群聊, anonymous指群内匿名聊, user指独聊   | both                    |
+| setEnd          | () => Promise<void>                                          | 异步函数，设置会话上下文结束                                 | session                 |
+| historyMessages | Record<string, Messages>                                     | 一个对象，保存了历史会话消息，其中key的值为`group`或`user`和`setNext`指定的名称 | session                 |
+| setNext         | (sessionName: string, expireSeconds?: number) => Promise<void> | 异步函数，设置下一个需要执行的session函数                    | user,group,both,session |
+
+#### 函数返回值：
+
+##### parse函数
 
 - 无返回值或是返回了`undefined`：表示用户消息不满足该命令的处理条件
 - 其他任意类型的值：该值可通过`this.data`属性获取到，一般用在user`或`parse`函数中
 
-`user`函数、`group`函数、session函数的返回值格式：
+##### 处理函数
 
 - 无返回值或是返回了`undefined`：表示处理完毕，但不返回任何消息
 - `{atSender:boolean, content: string}`：为一个对象时，`atSender`表示是否艾特发送者(仅群聊有效)，`content`为响应内容
@@ -415,7 +469,7 @@ robot.start();
 - "测试"：返回"结束"
 - "测试"：将重新从`user`开始解析。(注意`count`的值已经变成了0)
 
-在session存在期间，即使发给机器人的消息满足其他命令的处理条件，但并不会执行他们，知道session过期或结束
+在session存在期间，即使发给机器人的消息满足其他命令的处理条件，但并不会执行他们，知道session过期或结束。
 
 
 

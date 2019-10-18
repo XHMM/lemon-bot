@@ -210,6 +210,7 @@ export class RobotFactory {
             const parse = command.parse && command.parse.bind(command);
             const user = command.user && command.user.bind(command);
             const group = command.group && command.group.bind(command);
+            const both = command.both && command.both.bind(command);
             const triggerType = command.triggerType || TriggerType.at;
 
             // 该条消息与当前命令的作用域是否对应
@@ -259,41 +260,60 @@ export class RobotFactory {
               command.data = parsedData || null; // 注册data
 
               let replyData;
-              if (matchGroupScope && group) {
-                replyData = await group({
+              // 若提供了both函数，则不再调用user/group函数
+              if ((matchUserScope||matchGroupScope) && both) {
+                replyData = await both({
                   ...baseInfo,
-                  fromGroup: baseInfo.fromGroup!,
-                  isAt,
+                  messageFromType: getMessageFromTypeFromNumbers(numbers),
                   setNext: session
                     ? session.setSession.bind(session, numbers, {
+                      directives,
+                      historyMessages: {
+                        both: messages,
+                      },
+                    })
+                    : noSessionError
+                });
+                console.info(
+                  `[消息处理] 使用both函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
+                );
+              } else {
+                if (matchGroupScope && group) {
+                  replyData = await group({
+                    ...baseInfo,
+                    fromGroup: baseInfo.fromGroup!,
+                    isAt,
+                    setNext: session
+                      ? session.setSession.bind(session, numbers, {
                         directives,
                         historyMessages: {
                           group: messages,
                         },
                       })
-                    : noSessionError,
-                });
-                console.info(
-                  `[消息处理] 使用group函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
-                );
-              }
-              if (matchUserScope && user) {
-                replyData = await user({
-                  ...baseInfo,
-                  fromUser: baseInfo.fromUser!,
-                  fromGroup: undefined,
-                  setNext: session
-                    ? session.setSession.bind(session, numbers, {
+                      : noSessionError,
+                  });
+                  console.info(
+                    `[消息处理] 使用group函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
+                  );
+                }
+                if (matchUserScope && user) {
+                  replyData = await user({
+                    ...baseInfo,
+                    fromUser: baseInfo.fromUser!,
+                    fromGroup: undefined,
+                    setNext: session
+                      ? session.setSession.bind(session, numbers, {
                         directives,
                         historyMessages: {
                           user: messages,
                         },
                       })
-                    : noSessionError,
-                });
-                console.info(
-                  `[消息处理] 使用user函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
-                );
+                      : noSessionError,
+                  });
+                  console.info(
+                    `[消息处理] 使用user函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
+                  );
+                }
               }
               await handleReplyData(res, replyData, {
                 matchGroupScope,

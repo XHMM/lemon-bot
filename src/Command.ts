@@ -2,6 +2,7 @@
 import { assertType, getType } from '@xhmm/utils';
 import { Messages } from './CQHelper';
 import { HttpPlugin } from './HttpPlugin';
+import { MessageFromType } from './utils';
 
 // 命令生效范围
 export enum Scope {
@@ -24,7 +25,7 @@ export interface Numbers {
   robot: number; // 机器人qq
 }
 
-interface BaseParams extends Numbers{
+interface BaseParams extends Numbers {
   messages: Messages;
   stringMessages: string;
 }
@@ -48,11 +49,16 @@ export interface GroupHandlerParams extends BaseParams {
   isAt: boolean;
   setNext: SetNextFn;
 }
+// both函数
+export interface BothHandlerParams extends BaseParams {
+  messageFromType: MessageFromType
+  setNext: SetNextFn;
+}
 // session函数
 export interface SessionHandlerParams extends BaseParams {
   setNext: SetNextFn;
   setEnd: SetEndFn;
-  historyMessages: Record<string, Messages>; // { user/group: [..],  sessionName1: [..],  sessionName2: [..]}
+  historyMessages: Record<string, Messages>; // { user/group/both: [..],  sessionName1: [..],  sessionName2: [..]}
 }
 export type HandlerReturn =
   | {
@@ -87,9 +93,12 @@ export abstract class Command<C = unknown, D = unknown> {
     if (!this.directive && !this.parse) throw new Error('请为Command的继承类提供directive函数或parse函数');
     const hasUserHandler = getType(this.user) === 'function';
     const hasGroupHandler = getType(this.group) === 'function';
-    if (hasGroupHandler && hasUserHandler) this.scope = Scope.both;
+    const hasBothHandler = getType(this.both) === 'function';
+
+    if (hasBothHandler) this.scope = Scope.both;
+    else if (hasGroupHandler && hasUserHandler) this.scope = Scope.both;
     else {
-      if (!hasUserHandler && !hasGroupHandler) throw new Error('为Command的继承类提供user函数或group函数');
+      if (!hasUserHandler && !hasGroupHandler) throw new Error('为Command的继承类提供user函数或group函数或both函数');
       if (hasGroupHandler) this.scope = Scope.group;
       if (hasUserHandler) this.scope = Scope.user;
     }
@@ -110,9 +119,11 @@ export abstract class Command<C = unknown, D = unknown> {
   directive?(): string[];
   parse?(params: ParseParams): OrPromise<ParseReturn>;
 
-  // 下面俩函数必须提供一个
+  // 下面三个函数必须提供一个
   user?(params: UserHandlerParams): OrPromise<HandlerReturn>;
   group?(params: GroupHandlerParams): OrPromise<HandlerReturn>;
+  both?(params: BothHandlerParams): OrPromise<HandlerReturn>;
+
 }
 
 // 指定该选项时，只有这里面的qq/qq群可触发该命令
