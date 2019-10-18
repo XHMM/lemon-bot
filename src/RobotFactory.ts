@@ -128,15 +128,18 @@ export class RobotFactory {
         const messages = req.body.message && CQHelper.normalizeMessage(req.body.message);
         const messageFromType = getMessageFromTypeFromRequest(req);
         if (messageFromType === 'unhandled') {
-          Logger.debug('[请求终止]  非聊天类消息，不做处理');
+          Logger.debug('[请求终止]  暂不支持的消息类型，不做处理');
           res.end();
           return;
         }
+
         const isGroupMessage = messageFromType === 'group';
         const isAnonymousMessage = messageFromType === 'anonymous';
         const isUserMessage = messageFromType === 'user';
+        const isAt = CQHelper.isAt(robot, messages);
 
-        const userNumber = isAnonymousMessage ? null : req.body.sender.user_id;
+        const requestBody = req.body;
+        const userNumber = isAnonymousMessage ? null : req.body.user_id;
         const userRole = req.body.sender.role || 'member';
         const groupNumber = req.body.group_id;
         const robotNumber = robot;
@@ -145,8 +148,6 @@ export class RobotFactory {
           fromGroup: groupNumber,
           robot: robotNumber,
         };
-
-        const isAt = CQHelper.isAt(robot, messages);
         // ------------------------------------------------------------------------
         // ------------------------------------------------------------------------
         // ------------------------------------------------------------------------
@@ -182,6 +183,7 @@ export class RobotFactory {
                 setEnd,
                 ...numbers,
                 messages,
+                requestBody,
                 stringMessages: CQHelper.toTextString(messages),
                 historyMessages: sessionData.historyMessages,
               };
@@ -239,10 +241,9 @@ export class RobotFactory {
               // --- 根据指令或解析函数进行处理
               let parsedData = null;
               const baseInfo = {
-                directives: directives,
+                requestBody,
                 messages: messages,
                 stringMessages: CQHelper.toTextString(messages),
-                httpPlugin: httpPlugin,
                 ...numbers,
               };
               if (parse) {

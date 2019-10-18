@@ -239,6 +239,7 @@ class MyCommand extends Command<C, D> {
 | --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------- |
 | messages        | Messages                                                     | 二维数组形式表示的用户发来的消息                             | all                     |
 | stringMessages  | string                                                       | 字符串形式表示的用户发来的消息 (实际就是`CQHelper.toTextString(messages)`) | all                     |
+| requestBody     | any                                                          | 原始的http请求body数据，具体内容可查看HTTP插件文档。         | all                     |
 | fromUser        | number\|null                                                 | 发送消息者的QQ，为null时表明是群内匿名消息                   | all                     |
 | fromGroup       | number\|undefined                                            | 发送消息者所在的Q群，使用`user`函数时该值为undefined         | all                     |
 | robot           | number                                                       | 消息处理机器人                                               | all                     |
@@ -249,6 +250,8 @@ class MyCommand extends Command<C, D> {
 | setNext         | (sessionName: string, expireSeconds?: number) => Promise<void> | 异步函数，设置下一个需要执行的session函数                    | user,group,both,session |
 
 #### 函数返回值：
+
+
 
 ##### parse函数
 
@@ -320,6 +323,7 @@ group() {}
 ```js
 @trigger(TriggerScope.all)
 group() {}
+
 ```
 
 
@@ -393,6 +397,7 @@ const robot = RobotFactory.create({
   // ...
   session: new Session(createHandyClient())
 });
+
 ```
 
 #### 如何使用上下文功能？
@@ -472,6 +477,7 @@ const robot = RobotFactory.create({
   session: new Session(createHandyClient())
 });
 robot.start();
+
 ```
 
 在命令行内输入`npx ts-node index.ts`启动机器人，然后开始向你的机器人发送信息：
@@ -507,6 +513,7 @@ if (process.env.NODE_ENV === 'development')
 	Logger.enableDebug();
 else
     Logger.disableDebug();
+
 ```
 
 
@@ -530,6 +537,7 @@ else
 |   +-- HelpCommand.ts      
 |   +-- WordCommand.ts  
 +-- index.ts
+
 ```
 
 ### 2. 如何提供一个默认的消息处理函数？
@@ -545,6 +553,7 @@ else
            return "默认返回"
        }
    }
+   
    ```
 
 2. 将该类的实例对象放在`commands`数组的**最后一位**：
@@ -554,6 +563,7 @@ else
        // ...
        commands: [new ACommand(), new BCommand(), new DefaultCommand()]
    })
+   
    ```
 
    

@@ -35,7 +35,8 @@ export interface Numbers {
 
 interface BaseParams extends Numbers {
   messages: Messages;
-  stringMessages: string;
+  stringMessages: string; // TODO: 看下请求体里的 raw_message 是啥样的
+  requestBody: any
 }
 
 // parse函数
