@@ -130,18 +130,34 @@ export abstract class Command<C = unknown, D = unknown> {
 // TODO: 后期改为可接受(异步)函数
 export function include(include: number[]) {
   return function(proto, name, descriptor) {
-    if (name === 'group') proto.includeGroup = include;
-    else if (name === 'user') proto.includeUser = include;
+    if (name === 'group') {
+      if ('excludeGroup' in proto)
+        throw new Error("exclude and include decorators cannot used at the same time");
+      proto.includeGroup = include;
+    }
+    else if (name === 'user') {
+      if ('excludeUser' in proto)
+        throw new Error("exclude and include decorators cannot used at the same time");
+      proto.includeUser = include;
+    }
     else
       Logger.warn("include decorator only works with user or group function")
   };
 }
 
-// 用于user和group。指定该选项时，这里面的qq/qq群不可触发该命令。指定该选项则include无效
+// 用于user和group。指定该选项时，这里面的qq/qq群不可触发该命令。
 export function exclude(exclude: number[]) {
   return function(proto, name, descriptor) {
-    if (name === 'group') proto.excludeGroup = exclude;
-    else if (name === 'user') proto.excludeUser = exclude;
+    if (name === 'group') {
+      if ('includeGroup' in proto)
+        throw new Error("exclude and include decorators cannot used at the same time");
+      proto.excludeGroup = exclude;
+    }
+    else if (name === 'user') {
+      if ('includeUser' in proto)
+        throw new Error("exclude and include decorators cannot used at the same time");
+      proto.excludeUser = exclude;
+    }
     else
       Logger.warn("exclude decorator only works with user or group function")
   };

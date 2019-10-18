@@ -223,6 +223,9 @@ export class RobotFactory {
                 // --- 判断触发条件是否满足
                 if (triggerType === TriggerType.at && !isAt) continue;
                 if (triggerType === TriggerType.noAt && isAt) continue;
+                // 该群可使用该命令时，还需要判断发送者是否可使用
+                if (includeGroup && !includeGroup.includes(groupNumber)) continue;
+                if (excludeGroup && excludeGroup.includes(groupNumber)) continue;
 
                 if (includeGroup && includeGroup.includes(groupNumber)) canThisNumberUse = true;
                 if (excludeGroup && excludeGroup.includes(groupNumber)) canThisNumberUse = false;

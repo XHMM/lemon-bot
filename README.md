@@ -282,15 +282,14 @@ group() {} // 只有QQ群号为它的群可触发该命令
 
 ##### exclude( number[] )
 
-可用于`group`和`user`函数，表示这些QQ群/QQ号不能触发该命令。**若同时使用了`include`和`exclude`，则只有`exclude`会生效**
+可用于`group`和`user`函数，表示这些QQ群/QQ号不能触发该命令。**同时使用`include`和`exclude`会报错。**
 
 ```js
 @exclude([ 12312, 21223 ])
 user() {} // 除了上述两位QQ用户不能触发该命令，其他用户可触发
 
 @include([ 3333 ])
-@exclude([ 4444 ])
-group() {} // 除了群号为4444的群不能触发该命令，其他群都可触发，3333群也可以
+group() {} // 只有群号为3333的群可触发该命令
 ```
 
 
