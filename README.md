@@ -175,7 +175,7 @@ class MyCommand extends Command<C, D> {
     // [下面的三个必须至少提供一个]
     user(params: UserHandlerParams): HandlerReturn
     group(params: GroupHandlerParams): HandlerReturn
-	both(params: BothHandlerParams): HandlerReturn
+    both(params: BothHandlerParams): HandlerReturn
     
     // [下面的函数都是以session开头，可提供任意多个，详见下方文档描述]
     sessionA(params: SessionParams): HandlerReturn
