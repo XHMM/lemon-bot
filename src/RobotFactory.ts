@@ -197,7 +197,9 @@ export class RobotFactory {
                 groupNumber,
                 httpPlugin,
               });
-              Logger.debug(`[消息处理] 使用session${sessionData.sessionName}函数处理完毕`);
+              Logger.debug(
+                `[消息处理] 使用${className}类的session${sessionData.sessionName}函数处理完毕`
+              );
               return;
             }
           }
@@ -216,17 +218,19 @@ export class RobotFactory {
             const triggerType = command.triggerType || TriggerType.both;
             const triggerScope = command.triggerScope || TriggerScope.all;
 
-            // 该条消息与当前命令的作用域是否对应
+            // 判断当前命令和消息源是否匹配
             const matchGroupScope =
-              (scope === Scope.group || scope === Scope.both) && (isGroupMessage || isAnonymousMessage);
-            const matchUserScope = (scope === Scope.user || scope === Scope.both) && isUserMessage;
+              (scope === Scope.group || scope === Scope.both) &&
+              (isGroupMessage || isAnonymousMessage)
+            const matchUserScope =
+              (scope === Scope.user || scope === Scope.both) &&
+              isUserMessage
 
             if (matchGroupScope || matchUserScope) {
               if (matchGroupScope) {
-                // --- 判断触发条件是否满足
                 if (triggerType === TriggerType.at && !isAt) continue;
                 if (triggerType === TriggerType.noAt && isAt) continue;
-                // 该群可使用该命令时，还需要判断发送者是否可使用
+
                 if (includeGroup && !includeGroup.includes(groupNumber)) continue;
                 if (excludeGroup && excludeGroup.includes(groupNumber)) continue;
 
@@ -251,13 +255,17 @@ export class RobotFactory {
                 parsedData = await parse({
                   ...baseInfo,
                 });
-                if (typeof parsedData === 'undefined') continue;
+                if (typeof parsedData === 'undefined') {
+                  continue;
+                }
+                Logger.debug(`[消息处理] 使用${className}类的parse函数处理通过`)
               }
               // 若无parse函数，则直接和指令集进行相等性匹配，不匹配则继续循环
               else {
                 if (!directives.includes(CQRawMessageHelper.removeAt(rawMessage))) {
                   continue;
                 }
+                Logger.debug(`[消息处理] 使用${className}类的指令集处理通过`)
               }
               command.data = parsedData || null; // 注册data
 
@@ -276,7 +284,11 @@ export class RobotFactory {
                       })
                     : noSessionError,
                 });
-                Logger.debug(`[消息处理] 使用both函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`);
+                Logger.debug(
+                  `[消息处理] 使用${className}类的both函数处理完毕${
+                    typeof replyData === 'undefined' ? '(无返回值)' : ''
+                  }`
+                );
               } else {
                 if (matchGroupScope && group) {
                   replyData = await group({
@@ -293,7 +305,9 @@ export class RobotFactory {
                       : noSessionError,
                   });
                   Logger.debug(
-                    `[消息处理] 使用group函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
+                    `[消息处理] 使用${className}类的group函数处理完毕${
+                      typeof replyData === 'undefined' ? '(无返回值)' : ''
+                    }`
                   );
                 }
                 if (matchUserScope && user) {
@@ -311,7 +325,9 @@ export class RobotFactory {
                       : noSessionError,
                   });
                   Logger.debug(
-                    `[消息处理] 使用user函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
+                    `[消息处理] 使用${className}类的user函数处理完毕${
+                      typeof replyData === 'undefined' ? '(无返回值)' : ''
+                    }`
                   );
                 }
               }

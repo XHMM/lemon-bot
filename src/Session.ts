@@ -63,10 +63,11 @@ export class Session {
       )
     );
     await this.redisClient.expire(key, expireSeconds);
+    Logger.debug(`[消息处理] 函数名为session${sessionName}的session函数已建立，时长${expireSeconds}秒`)
   }
 
   async removeSession(params: Numbers): Promise<void> {
     await this.redisClient.del(Session.genSessionKey(params));
-    Logger.debug('[消息处理] session会话结束')
+    Logger.debug('[消息处理] session会话被清除')
   }
 }
