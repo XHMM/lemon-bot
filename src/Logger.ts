@@ -19,7 +19,7 @@ export class Logger {
     types: {
       warn: {
         badge: '',
-        label: 'warn',
+        label: 'warning',
         color: 'yellow',
       },
       error: {

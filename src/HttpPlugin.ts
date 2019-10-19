@@ -37,17 +37,19 @@ type GetGroupMemberListResponse = Array<{
   card_changeable: boolean;
 }>;
 interface GetImageResponse {
-  file: string;   // 下载后的图片的本地路径
+  file: string; // 下载后的图片的本地路径
 }
 
 class HttpPluginError extends Error {
   private apiName: APIList;
-  private code: number;
-  constructor(apiName, code, message) {
-    super(`api name:${apiName}, error message:${message}`);
+  private retcode?: number;
+  constructor(apiName: APIList, message: string, retcode?: number) {
+    if (retcode) super(`HTTP Plugin API "${apiName}" called with error message "${message}", retcode is ${retcode}`);
+    else super(`HTTP Plugin API "${apiName}" called with error message "${message}"`);
     this.name = this.constructor.name;
     this.apiName = apiName;
-    this.code = code;
+    if (retcode) this.retcode = retcode;
+    Error.captureStackTrace(this, this.constructor);
   }
 }
 
@@ -120,13 +122,13 @@ export class HttpPlugin {
           if (retcode === -38) reason = '接收者帐号错误或帐号不在该群组内';
         }
         return Promise.reject(
-          new HttpPluginError(api, retcode, `response data status is ${status}, reason is ${reason}`)
+          new HttpPluginError(api, `response data status is ${status}, reason is ${reason}`, retcode)
         );
       } else {
-        return Promise.reject(new HttpPluginError(api, -1, `fetch response status code is ${response.status}`));
+        return Promise.reject(new HttpPluginError(api, `fetch response status code is ${response.status}`));
       }
     } catch (e) {
-      throw new HttpPluginError(api, -1, e.message);
+      throw new HttpPluginError(api, e.message);
     }
   }
 }
