@@ -30,16 +30,19 @@ export class Logger {
     },
   });
 
-  static setDebugLabel(label: string): void {
-    Logger.debugLogger = Logger.debugLogger.scope(Logger.prefix,label);
+  static createDebugLoggerWithLabel(label: string): typeof signale {
+    const logger = Logger.debugLogger.scope(Logger.prefix,label);
+    return logger
   }
-  static clearDebugLabel(label: string): void {
-    Logger.debugLogger = Logger.debugLogger.scope(Logger.prefix,label);
+  static createLoggerWithLabel(label: string): typeof signale {
+    const logger = Logger.logger.scope(Logger.prefix,label);
+    return logger
   }
 
   static enableDebug(): void {
     Logger.debugLogger.enable();
   }
+
   static disableDebug(): void {
     Logger.debugLogger.disable();
   }
