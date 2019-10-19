@@ -29,10 +29,14 @@ type Directive = string;
 type CommandsMap = Record<
   QQK,
   {
-    commands: CreateParams['commands'];
-    port: PortV;
-    session: CreateParams['session'];
     qq: QQV;
+    port: PortV;
+    commands: CreateParams['commands'];
+    session: CreateParams['session'];
+    debugLogger: any
+    logger: any
+    secret: string
+    httpPlugin: HttpPlugin
   }
 >;
 type AppsMap = Record<PortK, [Express, 'listening' | 'idle']>;
@@ -90,6 +94,10 @@ export class RobotFactory {
         port,
         session,
         qq: robot,
+        debugLogger,
+        logger,
+        secret,
+        httpPlugin
       };
     }
 
