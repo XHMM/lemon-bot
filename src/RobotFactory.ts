@@ -55,11 +55,10 @@ export class RobotFactory {
     // note: Object.keys(obj)返回的都是字符串类型！
 
     {
-      // ----- 验证commands参数是否合法
+      // 验证commands参数是否都合法
       const allDirectives: Directive[] = [];
       for (const command of commands) {
-        if (Object.getPrototypeOf(command.constructor) !== Command) throw new Error('请继承Command类并传入实例对象');
-        Command.normalizeDirectives(command);
+        Command.validate(command);
         allDirectives.push(...command.directives);
       }
       if (hasRepeat(allDirectives)) throw new Error('所有的Command对象间的指令不能重复');

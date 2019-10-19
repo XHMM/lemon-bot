@@ -114,8 +114,17 @@ export abstract class Command<C = unknown, D = unknown> {
     }
   }
 
-  // must be called manually before using command
-  public static normalizeDirectives(cmd: Command): void {
+  public static validate(cmd: Command): void {
+    if (!cmd.constructor) throw new Error('请继承Command类并传入实例对象');
+    if (Object.getPrototypeOf(cmd.constructor) !== Command) throw new Error('请继承Command类并传入实例对象');
+
+    if (cmd.parse) assertType(cmd.parse, 'function');
+    if (cmd.group) assertType(cmd.group, 'function');
+    if (cmd.user) assertType(cmd.user, 'function');
+    if (cmd.both) assertType(cmd.both, 'function');
+
+    if (!cmd.both && !cmd.group && !cmd.user) throw new Error('请至少实现一个处理函数：both、group、user');
+
     const defaultDirective = cmd.constructor.name + 'Default';
     if (typeof cmd.directive === 'function') {
       const directives = cmd.directive();
@@ -132,7 +141,6 @@ export abstract class Command<C = unknown, D = unknown> {
   user?(params: UserHandlerParams): OrPromise<HandlerReturn>;
   group?(params: GroupHandlerParams): OrPromise<HandlerReturn>;
   both?(params: BothHandlerParams): OrPromise<HandlerReturn>;
-
 }
 
 // 用于user和group。指定该选项时，只有这里面的qq/qq群可触发该命令
