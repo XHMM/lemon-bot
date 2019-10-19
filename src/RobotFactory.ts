@@ -204,7 +204,12 @@ export class RobotFactory {
             }
           }
           res.end();
-          throw new Error(`[消息处理] Error:未找到与缓存匹配的名为[session${sessionData.sessionName}}的session函数`);
+          await session!.removeSession(numbers);
+          Logger.warn(
+            `[消息处理] 未在${sessionData.className}类中找到与缓存匹配的session${
+              sessionData.sessionName
+            }函数，当前会话已重置`
+          );
         }
         // 若无session或是sessionData为null，则按正常流程解析并处理指令
         else {
