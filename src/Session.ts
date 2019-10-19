@@ -1,6 +1,6 @@
 import { IHandyRedis } from 'handy-redis';
 import { assertType } from '@xhmm/utils';
-import { Messages } from './CQHelper';
+import { Message } from './CQHelper';
 import { Numbers } from './Command';
 import { MessageFromType, getMessageFromTypeFromNumbers } from './utils';
 import { Logger } from './Logger';
@@ -9,9 +9,9 @@ type SessionKey = string;
 
 export interface SessionData extends Numbers {
   fromType: MessageFromType;
+  className: string; // 本次会话的session所属类
   sessionName: string; // 本次会话需要被执行的session函数
-  directives: string[]; // 本次会话处理的指令集，可据此判断该session所述类
-  historyMessages: Record<string, Messages>; // string是session name
+  historyMessage: Record<string, Message[]>; // string是session name
 }
 
 export class Session {
@@ -44,7 +44,7 @@ export class Session {
 
   async setSession(
     params: Numbers,
-    { directives, historyMessages }: Pick<SessionData, 'directives' | 'historyMessages'>,
+    { className, historyMessage }: Pick<SessionData, 'className' | 'historyMessage'>,
     sessionName: SessionData['sessionName'],
     expireSeconds = 300
   ): Promise<void> {
@@ -57,8 +57,8 @@ export class Session {
       JSON.stringify(
         Object.assign(JSON.parse(key), {
           sessionName,
-          directives,
-          historyMessages,
+          className,
+          historyMessage,
         })
       )
     );

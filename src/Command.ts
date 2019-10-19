@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { assertType, getType } from '@xhmm/utils';
-import { Messages } from './CQHelper';
+import { Message } from './CQHelper';
 import { HttpPlugin } from './HttpPlugin';
 import { MessageFromType } from './utils';
 import { Logger } from './Logger';
@@ -34,9 +34,9 @@ export interface Numbers {
 }
 
 interface BaseParams extends Numbers {
-  messages: Messages;
-  stringMessages: string; // TODO: 看下请求体里的 raw_message 是啥样的
-  requestBody: any
+  message: Message[];
+  rawMessage: string;
+  requestBody: any;
 }
 
 // parse函数
@@ -60,14 +60,14 @@ export interface GroupHandlerParams extends BaseParams {
 }
 // both函数
 export interface BothHandlerParams extends BaseParams {
-  messageFromType: MessageFromType
+  messageFromType: MessageFromType;
   setNext: SetNextFn;
 }
 // session函数
 export interface SessionHandlerParams extends BaseParams {
   setNext: SetNextFn;
   setEnd: SetEndFn;
-  historyMessages: Record<string, Messages>; // { user/group/both: [..],  sessionName1: [..],  sessionName2: [..]}
+  historyMessage: Record<string, Message[]>; // { user/group/both: [..],  sessionName1: [..],  sessionName2: [..]}
 }
 export type HandlerReturn =
   | {
@@ -140,17 +140,12 @@ export abstract class Command<C = unknown, D = unknown> {
 export function include(include: number[]) {
   return function(proto, name, descriptor) {
     if (name === 'group') {
-      if ('excludeGroup' in proto)
-        throw new Error("exclude and include decorators cannot used at the same time");
+      if ('excludeGroup' in proto) throw new Error('exclude and include decorators cannot used at the same time');
       proto.includeGroup = include;
-    }
-    else if (name === 'user') {
-      if ('excludeUser' in proto)
-        throw new Error("exclude and include decorators cannot used at the same time");
+    } else if (name === 'user') {
+      if ('excludeUser' in proto) throw new Error('exclude and include decorators cannot used at the same time');
       proto.includeUser = include;
-    }
-    else
-      Logger.warn("include decorator only works with user or group function")
+    } else Logger.warn('include decorator only works with user or group function');
   };
 }
 
@@ -158,38 +153,29 @@ export function include(include: number[]) {
 export function exclude(exclude: number[]) {
   return function(proto, name, descriptor) {
     if (name === 'group') {
-      if ('includeGroup' in proto)
-        throw new Error("exclude and include decorators cannot used at the same time");
+      if ('includeGroup' in proto) throw new Error('exclude and include decorators cannot used at the same time');
       proto.excludeGroup = exclude;
-    }
-    else if (name === 'user') {
-      if ('includeUser' in proto)
-        throw new Error("exclude and include decorators cannot used at the same time");
+    } else if (name === 'user') {
+      if ('includeUser' in proto) throw new Error('exclude and include decorators cannot used at the same time');
       proto.excludeUser = exclude;
-    }
-    else
-      Logger.warn("exclude decorator only works with user or group function")
+    } else Logger.warn('exclude decorator only works with user or group function');
   };
 }
 
 // 用于group和both。设置群组内命令触发方式
 export function trigger(type: TriggerType) {
   return function(proto, name, descriptor) {
-    if(name !== 'group' && name !== 'both') {
-      Logger.warn("trigger decorator only works with group or both function.")
-    }
-    else
-      proto.triggerType = type;
+    if (name !== 'group' && name !== 'both') {
+      Logger.warn('trigger decorator only works with group or both function.');
+    } else proto.triggerType = type;
   };
 }
 
 // 用于group和both。设置群组内什么身份可触发命令
 export function scope(role: TriggerScope) {
   return function(proto, name, descriptor) {
-    if(name !== 'group' && name !== 'both') {
-      Logger.warn("trigger decorator only works with group or both function.")
-    }
-    else
-      proto.triggerScope = role;
+    if (name !== 'group' && name !== 'both') {
+      Logger.warn('trigger decorator only works with group or both function.');
+    } else proto.triggerScope = role;
   };
 }

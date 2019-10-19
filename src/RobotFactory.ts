@@ -2,7 +2,7 @@ import { Express, Request, Response } from 'express';
 import { hasRepeat, getType } from '@xhmm/utils';
 import { Command, Scope, TriggerType, SessionHandlerParams, Numbers, TriggerScope } from './Command';
 import { HttpPlugin } from './HttpPlugin';
-import { CQHelper } from './CQHelper';
+import { CQMessageHelper, CQRawMessageHelper } from './CQHelper';
 import { Session, SessionData } from './Session';
 import { getMessageFromTypeFromRequest, getMessageFromTypeFromNumbers, MessageFromType } from './utils';
 import { Logger } from './Logger';
@@ -124,7 +124,8 @@ export class RobotFactory {
         // ------------------------------------------------------------------------
         // ------------ 请求信息统一在此设置，后面代码不要使用req.body的值-------------
         // ------------------------------------------------------------------------
-        const messages = req.body.message && CQHelper.normalizeMessage(req.body.message);
+        const message = req.body.message && CQMessageHelper.normalizeMessage(req.body.message);
+        const rawMessage = req.body.raw_message && req.body.raw_message;
         const messageFromType = getMessageFromTypeFromRequest(req);
         if (messageFromType === 'unhandled') {
           Logger.debug('[请求终止]  暂不支持的消息类型，不做处理');
@@ -135,7 +136,7 @@ export class RobotFactory {
         const isGroupMessage = messageFromType === 'group';
         const isAnonymousMessage = messageFromType === 'anonymous';
         const isUserMessage = messageFromType === 'user';
-        const isAt = CQHelper.isAt(robot, messages);
+        const isAt = CQMessageHelper.isAt(robot, message);
 
         const requestBody = req.body;
         const userNumber = isAnonymousMessage ? null : req.body.user_id;
@@ -161,7 +162,8 @@ export class RobotFactory {
         // 若找到了sessionData，则必须要提供相关处理数据，否则报错
         if (sessionData) {
           for (const command of RobotFactory.commandsMap[robot].commands) {
-            if (!sessionData.directives.includes(command.directives[0])) continue;
+            const className = command.constructor.name
+            if (sessionData.className !== className) continue;
             // @ts-ignore
             const sessionNames = Object.getOwnPropertyNames(command.__proto__)
               .filter(item => item.startsWith('session') && item !== 'constructor')
@@ -169,10 +171,10 @@ export class RobotFactory {
             if (sessionNames.includes(sessionData.sessionName)) {
               const setNext = session
                 ? session.setSession.bind(session, numbers, {
-                    directives: sessionData.directives,
-                    historyMessages: {
-                      ...sessionData.historyMessages,
-                      [sessionData.sessionName]: messages,
+                    className: sessionData.className,
+                    historyMessage: {
+                      ...sessionData.historyMessage,
+                      [sessionData.sessionName]: message,
                     },
                   })
                 : noSessionError;
@@ -181,10 +183,10 @@ export class RobotFactory {
                 setNext,
                 setEnd,
                 ...numbers,
-                messages,
+                message,
                 requestBody,
-                stringMessages: CQHelper.toTextString(messages),
-                historyMessages: sessionData.historyMessages,
+                rawMessage,
+                historyMessage: sessionData.historyMessage,
               };
               const replyData = command[`session${sessionData.sessionName}`].call(command, sessionHandlerParams);
               const messageFromType = getMessageFromTypeFromNumbers(numbers);
@@ -206,6 +208,7 @@ export class RobotFactory {
         // 若无session或是sessionData为null，则按正常流程解析并处理指令
         else {
           for (const command of RobotFactory.commandsMap[robot].commands) {
+            const className = command.constructor.name;
             const { includeGroup, excludeGroup, includeUser, excludeUser, scope, directives } = command;
             const parse = command.parse && command.parse.bind(command);
             const user = command.user && command.user.bind(command);
@@ -241,8 +244,8 @@ export class RobotFactory {
               let parsedData = null;
               const baseInfo = {
                 requestBody,
-                messages: messages,
-                stringMessages: CQHelper.toTextString(messages),
+                message,
+                rawMessage,
                 ...numbers,
               };
               if (parse) {
@@ -254,7 +257,7 @@ export class RobotFactory {
               }
               // 若无parse函数，则直接和指令集进行相等性匹配，不匹配则继续循环
               else {
-                if (!directives.includes(CQHelper.toTextString(CQHelper.removeAt(messages)))) {
+                if (!directives.includes(CQRawMessageHelper.removeAt(rawMessage))) {
                   continue;
                 }
               }
@@ -268,9 +271,9 @@ export class RobotFactory {
                   messageFromType: getMessageFromTypeFromNumbers(numbers),
                   setNext: session
                     ? session.setSession.bind(session, numbers, {
-                        directives,
-                        historyMessages: {
-                          both: messages,
+                        className,
+                        historyMessage: {
+                          both: message,
                         },
                       })
                     : noSessionError,
@@ -284,9 +287,9 @@ export class RobotFactory {
                     isAt,
                     setNext: session
                       ? session.setSession.bind(session, numbers, {
-                          directives,
-                          historyMessages: {
-                            group: messages,
+                          className,
+                          historyMessage: {
+                            group: message,
                           },
                         })
                       : noSessionError,
@@ -302,9 +305,9 @@ export class RobotFactory {
                     fromGroup: undefined,
                     setNext: session
                       ? session.setSession.bind(session, numbers, {
-                          directives,
-                          historyMessages: {
-                            user: messages,
+                          className,
+                          historyMessage: {
+                            user: message,
                           },
                         })
                       : noSessionError,
