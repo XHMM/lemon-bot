@@ -22,12 +22,12 @@
   "dependencies": {
     "@xhmm/utils": "0.0.1",
     "express": "^4.17.1",
-    "handy-redis": "^1.6.2",
     "node-fetch": "^2.6.0",
-    "signale": "git+https://github.com/XHMM/signale.git",
-    "ts-node": "^8.4.1"
+    "signale": "git+https://github.com/XHMM/signale.git"
   },
   "devDependencies": {
+    "handy-redis": "^1.6.2",
+    "ts-node": "^8.4.1",
     "@types/express": "^4.17.1",
     "@types/jest": "^24.0.18",
     "@types/node-fetch": "^2.5.2",
