@@ -4,6 +4,8 @@
 
 - 支持多命令匹配、命令自定义解析
 
+- 使用修饰器进行灵活的命令触发控制
+
 - 支持会话上下文功能
 
 - 支持多机器人运行
@@ -155,7 +157,7 @@ robot.start();
 
 该类需要被继承使用，用来创建命令。下面将以继承类的角度进行描述：
 
-#### 继承类的结构：
+#### 继承类的基本结构：
 
 ```typescript
 // 导入基类
@@ -183,7 +185,7 @@ class MyCommand extends Command<C, D> {
 }
 ```
 
-#### 基本属性：
+#### 属性：
 
 ##### context属性
 
@@ -195,7 +197,7 @@ class MyCommand extends Command<C, D> {
 
 ##### data属性
 
-该实例值为`parse`函数的返回值。因此请勿在`parse`函数内使用该属性。
+该属性值为`parse`函数的返回值。因此请勿在`parse`函数内使用该属性。
 
 
 
@@ -203,11 +205,13 @@ class MyCommand extends Command<C, D> {
 
 ##### **directive**函数
 
-该函数应返回一个字符串数组。假如它返回了`["天气", "weather"]`，并且你未实现`parse`函数时，当接收到用户消息后，会判断消息内容是否等于"天气"或者"weather"，若相等，则会执行`user`或`parse`或`both`函数，若不相等，则会进行下一个命令的判断。
+该函数应返回一个字符串数组。假如它返回了`["天气", "weather"]`，并且你定义`parse`函数时，当接收到用户消息后，会判断消息内容是否等于"天气"或者"weather"，若相等，则会执行`user`或`parse`或`both`函数，若不相等，则会进行下一个命令的判断。
 
 ##### parse函数
 
 上述`directive`函数无法实现自定义命令解析，比如想要获取 "天气 西安" 这一消息中的城市，则需要使用该函数手动处理，该函数的返回值信息会赋给`data`属性，从而可供其他函数访问使用。**警告：**若提供了该函数，则不会再使用`directive`函数进行命令处理。
+
+这两个函数同时存在是允许的，并且十分建议不要省略`directive`函数的声明，因为通过该函数的返回值内容可以提升代码阅读性，方便识别该命令的用途。
 
 
 
@@ -233,12 +237,12 @@ class MyCommand extends Command<C, D> {
 
 #### 函数参数：
 
-`parse`函数和上述的所有的处理函数的参数都是一个对象，该对象的属性内容如下（scope列描述了该属性存在于哪些函数，all表示每个函数都有该参数）：
+`directive`函数是无参的，其余的解析函数和处理函数的参数都是一个对象，该对象的属性内容如下（scope列描述了该属性存在于哪些函数，all表示每个函数都有该参数）：
 
 | key             | type                                                         | description                                                  | scope                   |
 | --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------- |
-| messages        | Messages                                                     | 二维数组形式表示的用户发来的消息                             | all                     |
-| stringMessages  | string                                                       | 字符串形式表示的用户发来的消息 (实际就是`CQHelper.toTextString(messages)`) | all                     |
+| message         | Message[]                                                    | 二维数组形式表示的用户发来的消息                             | all                     |
+| rawMessage      | string                                                       | 字符串形式表示的用户发来的消息 (实际就是`CQHelper.toTextString(messages)`) | all                     |
 | requestBody     | any                                                          | 原始的http请求body数据，具体内容可查看HTTP插件文档。         | all                     |
 | fromUser        | number\|null                                                 | 发送消息者的QQ，为null时表明是群内匿名消息                   | all                     |
 | fromGroup       | number\|undefined                                            | 发送消息者所在的Q群，使用`user`函数时该值为undefined         | all                     |
@@ -250,8 +254,6 @@ class MyCommand extends Command<C, D> {
 | setNext         | (sessionName: string, expireSeconds?: number) => Promise<void> | 异步函数，设置下一个需要执行的session函数                    | user,group,both,session |
 
 #### 函数返回值：
-
-
 
 ##### parse函数
 
@@ -301,9 +303,9 @@ group() {} // 只有群号为3333的群可触发该命令
 
 可用于`group`和`both`函数，表示命令触发方式，可赋值为：
 
-- `TriggerType.at` (默认值)：用户必须艾特机器人并发送消息方可触发命令
+- `TriggerType.at` ：用户必须艾特机器人并发送消息方可触发命令
 - `TriggerType.noAt`：用户之间在群内发送消息可触发命令，艾特机器人即使命令正确也不会触发
-- `TriggerType.both`：艾特或者不艾特机器人都可触发命令
+- `TriggerType.both`(默认值)：艾特或者不艾特机器人都可触发命令
 
 ```js
 @trigger(TriggerType.noAt)
@@ -323,26 +325,33 @@ group() {}
 ```js
 @trigger(TriggerScope.all)
 group() {}
-
 ```
 
 
 
-### Class CQHelper
+### Class CQMessageHelper
 
-一个用来处理消息数组的工具类，提供了多种静态方法。该方法接收`messages`作为参数，该参数可在`parse`、`user`、`group`、`sessionXX`等函数参数中获取到。
+一个用来处理数组格式消息的工具类。该方法接收的`message`参数为解析函数和处理函数的函数参数的`message`属性。
 
-#### static removeAt(messages: Messages): Messages
+##### static removeAt(message: Message[]): Message[]
 
 移除消息数组的艾特语句
 
-#### static isAt(robotQQ: number, messages: Messages): boolean
+##### static isAt(robotQQ: number, message: Message[]): boolean
 
 判断消息数组是否含有艾特robotQQ的语句
 
-#### static toTextString(messages: Messages, removeAt?: boolean): string
+##### static toRawMessage(message: Message[], removeAt?: boolean): string
 
 将消息数组转换为字符串形式，特殊形式的信息则会变成[CQ码](https://docs.cqp.im/manual/cqcode/)形式。
+
+### Class CQRawMessageHelper
+
+一个用来字符串格式消息的工具类。该方法接收的`message`参数为解析函数和处理函数的函数参数的`rawMessage`属性。
+
+##### static removeAt(message: string): string
+
+移除字符串消息中的艾特CQ码
 
 
 
@@ -369,15 +378,15 @@ PluginConfig：一个对象，包含如下属性
 
 目前提供了如下接口的实现：
 
-#### sendPrivateMsg(personQQ: number, message: string, escape?: boolean)
+##### sendPrivateMsg(personQQ: number, message: string, escape?: boolean)
 
-#### sendGroupMsg(groupQQ: number, message: string, escape?: boolean)
+##### sendGroupMsg(groupQQ: number, message: string, escape?: boolean)
 
-#### getGroupList()
+##### getGroupList()
 
-#### getGroupMemberList(groupQQ: number)
+##### getGroupMemberList(groupQQ: number)
 
-#### downloadImage(cqFile: string)
+##### downloadImage(cqFile: string)
 
 
 
@@ -397,7 +406,6 @@ const robot = RobotFactory.create({
   // ...
   session: new Session(createHandyClient())
 });
-
 ```
 
 #### 如何使用上下文功能？
@@ -477,7 +485,6 @@ const robot = RobotFactory.create({
   session: new Session(createHandyClient())
 });
 robot.start();
-
 ```
 
 在命令行内输入`npx ts-node index.ts`启动机器人，然后开始向你的机器人发送信息：
@@ -513,7 +520,6 @@ if (process.env.NODE_ENV === 'development')
 	Logger.enableDebug();
 else
     Logger.disableDebug();
-
 ```
 
 
@@ -537,7 +543,6 @@ else
 |   +-- HelpCommand.ts      
 |   +-- WordCommand.ts  
 +-- index.ts
-
 ```
 
 ### 2. 如何提供一个默认的消息处理函数？
@@ -553,7 +558,6 @@ else
            return "默认返回"
        }
    }
-   
    ```
 
 2. 将该类的实例对象放在`commands`数组的**最后一位**：
@@ -563,7 +567,6 @@ else
        // ...
        commands: [new ACommand(), new BCommand(), new DefaultCommand()]
    })
-   
    ```
 
    
