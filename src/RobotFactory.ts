@@ -72,18 +72,17 @@ export class RobotFactory {
       Logger.debug(`Robot ${robot}:`);
       if (session) Logger.debug(` - [功能] session函数处理已启用`);
       else Logger.debug(` - [功能] session函数处理未开启`);
-      for (const command of commands) {
+      for (const [index, command] of Object.entries(commands)) {
         Logger.debug(
           ` - [命令] 指令集:${command.directives.join(',')}  解析函数:${command.parse ? '有' : '无'}  作用域:${
             command.scope
           }  ${
             command.scope === Scope.user ? '' : `是否艾特:${command.triggerType ? command.triggerType : TriggerType.at}`
-          }`
+          }${+index === commands.length - 1 ? '\n' : ''}`
         );
         command.context = context || null; // 注册context
         command.httpPlugin = httpPlugin; // 注册httpPlugin
       }
-      Logger.debug('\n');
       RobotFactory.commandsMap[robot + ''] = {
         commands: commands,
         port,
@@ -340,7 +339,7 @@ export class RobotFactory {
           app
             .listen(port, () => {
               resolve();
-              Logger.debug(`[普通日志] http server listening on http://localhost:${port}/coolq\n`);
+              Logger.debug(`[普通日志] http server listening on http://localhost:${port}/coolq`);
             })
             .on('error', err => {
               Logger.error(err);
