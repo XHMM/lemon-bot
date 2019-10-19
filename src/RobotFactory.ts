@@ -213,7 +213,7 @@ export class RobotFactory {
             const user = command.user && command.user.bind(command);
             const group = command.group && command.group.bind(command);
             const both = command.both && command.both.bind(command);
-            const triggerType = command.triggerType || TriggerType.at;
+            const triggerType = command.triggerType || TriggerType.both;
             const triggerScope = command.triggerScope || TriggerScope.all;
 
             // 该条消息与当前命令的作用域是否对应
