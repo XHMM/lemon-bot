@@ -420,14 +420,18 @@ async function handleReplyData(
     });
     return;
   } else {
-    // 尝试转换为字符串，若不为空则返回
-    const str = replyData.toString();
-    if (str)
-      res.json({
-        at_sender: false,
-        reply: str as string,
-      });
-    else res.end();
-    return;
+    try {
+      // 尝试转换为字符串，若不为空则返回
+      const str = replyData.toString();
+      if (str)
+        res.json({
+          at_sender: false,
+          reply: str as string,
+        });
+      else res.end();
+      return;
+    } catch (e) {
+      res.end();
+    }
   }
 }
