@@ -230,9 +230,8 @@ export class RobotFactory {
                 if (includeGroup && !includeGroup.includes(groupNumber)) continue;
                 if (excludeGroup && excludeGroup.includes(groupNumber)) continue;
 
-                // 角色权限判断
                 // @ts-ignore
-                if ((TriggerScope[userRole] & triggerScope) !== 1) continue;
+                if ((TriggerScope[userRole] & triggerScope) === 0) continue;
               }
               if (matchUserScope) {
                 if (includeUser && !includeUser.includes(userNumber)) continue;
