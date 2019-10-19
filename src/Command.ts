@@ -175,7 +175,7 @@ export function exclude(exclude: number[]) {
 // 用于group和both。设置群组内命令触发方式
 export function trigger(type: TriggerType) {
   return function(proto, name, descriptor) {
-    if(name !== 'group' || name !== 'both') {
+    if(name !== 'group' && name !== 'both') {
       Logger.warn("trigger decorator only works with group or both function.")
     }
     else
@@ -186,7 +186,7 @@ export function trigger(type: TriggerType) {
 // 用于group和both。设置群组内什么身份可触发命令
 export function scope(role: TriggerScope) {
   return function(proto, name, descriptor) {
-    if(name !== 'group' || name !== 'both') {
+    if(name !== 'group' && name !== 'both') {
       Logger.warn("trigger decorator only works with group or both function.")
     }
     else
