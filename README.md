@@ -129,7 +129,7 @@ robot.start(); // 启动
 | commands   | Command[]  | 需要注册的命令                                         |          |
 | session    | Session    | 传入该参数运行使用session函数                          | optional |
 | secret     | string     | 须和HTTP插件配置文件值保持一致，用于对上报数据进行验证 | optional |
-| context    | any        | 该属性可在Command子类内被访问，默认值为null            | optional |
+| context    | any        | 该属性会作为Command继承类的成员属性，默认值为null            | optional |
 
 `CreateReturn`：该函数的返回值是一个对象，包含如下属性
 
@@ -162,10 +162,10 @@ robot.start();
 // 导入基类
 import { Command} from 'lemon-bot';
 // 导入ts类型定义提升开发体验
-import {ParseParams, ParseReturn, UserHandlerParams, GroupHandlerParams, SessionHandlerParams, HandlerReturn} from 'lemon-bot'
+import { ParseParams, ParseReturn, UserHandlerParams, GroupHandlerParams, SessionHandlerParams, HandlerReturn } from 'lemon-bot'
 
-class MyCommand extends Command<C, D> {
-	context: C;
+class MyCommand extends Command<C> {
+    context: C;
     httpPlugin;
     
     // [下面的directive函数和parse函数必须至少提供一个]
@@ -183,15 +183,15 @@ class MyCommand extends Command<C, D> {
 }
 ```
 
-#### 属性：
+#### 成员属性：
 
 ##### context属性
 
-该实例属性的值为使用`RobotFactory.create`时传给`context`参数的内容，默认为null。
+该属性的值等同于使用`RobotFactory.create`时传给`context`参数的内容，默认为null。
 
 ##### httpPlugin属性
 
-该实例属性的值为使用`RobotFactory.create`时传给`httpPlugin`参数的内容。
+该属性的值为使用`RobotFactory.create`时传给`httpPlugin`参数的内容。
 
 
 
