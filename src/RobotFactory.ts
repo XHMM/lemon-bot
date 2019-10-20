@@ -255,7 +255,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
             rawMessage,
             historyMessage: sessionData.historyMessage,
           };
-          const replyData = command[`session${sessionData.sessionName}`].call(command, sessionHandlerParams);
+          const replyData = await command[`session${sessionData.sessionName}`].call(command, sessionHandlerParams);
           const messageFromType = getMessageFromTypeFromNumbers(numbers);
           await handleReplyData(res, replyData, {
             matchGroupScope: messageFromType === MessageFromType.group || messageFromType === MessageFromType.anonymous,
