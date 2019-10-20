@@ -571,7 +571,9 @@ else
    })
    ```
 
-   
+## 更新日志
+### [Changelog](https://github.com/XHMM/lemon-bot/blob/master/CHANGELOG.md)
+
 
 ## 其他
 
