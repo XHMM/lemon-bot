@@ -68,7 +68,7 @@
 在`index.ts`文件里写入下述代码：
 
 ```js
-import { Command, RobotFactory, HttpPlugin, trigger, TriggerType } from "lemon-bot";
+import { Command, RobotFactory, HttpPlugin } from "lemon-bot";
 
 class SimpleCommand extends Command {
   // 当机器人接收到"测试"或是"test"文本后，会触发该命令
@@ -82,9 +82,6 @@ class SimpleCommand extends Command {
   }
 
   // 当机器人在QQ群内并检测到上述指令后，会使用group函数进行响应
-  // 在群内默认需要艾特机器人并发送消息才会触发命令，使用trigger修饰器可改变此行为
-  // 下面指艾特或不艾特机器人都会触发命令处理
-  @trigger(TriggerType.both)
   group({ fromUser, fromGroup }) {
     // 返回值为数组时，机器人会连续发送多条消息。
     return ["触发群是" + fromGroup, "触发用户是" + fromUser];
@@ -94,7 +91,7 @@ class SimpleCommand extends Command {
 const robot = RobotFactory.create({
   port: 8888, // node应用的运行端口。需要和插件配置文件的post_url对应
   robot: 1326099664, // 机器人QQ号
-  httpPlugin: new HttpPlugin("http://localhost:5700"), // 该对象用于主动API调用
+  httpPlugin: new HttpPlugin("http://localhost:5700"), // 用于调用HTTP Plugin API
   commands: [new SimpleCommand()] // 该机器人可处理的命令
 });
 robot.start(); // 启动
