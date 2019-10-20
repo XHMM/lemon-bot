@@ -13,6 +13,8 @@
 - and more ...
 
   
+## 前言
+该项目仍处于早期开发版，故版本变动较为频繁，但会尽可能保证基本开发方式保持不变，具体变动见 [Changelog](https://github.com/XHMM/lemon-bot/blob/master/CHANGELOG.md)
 
 ## 准备
 
@@ -168,7 +170,6 @@ import {ParseParams, ParseReturn, UserHandlerParams, GroupHandlerParams, Session
 class MyCommand extends Command<C, D> {
 	context: C;
     httpPlugin;
-    data: D;
     
     // [下面的directive函数和parse函数必须至少提供一个]
     directive(): string[]
@@ -195,10 +196,6 @@ class MyCommand extends Command<C, D> {
 
 该实例属性的值为使用`RobotFactory.create`时传给`httpPlugin`参数的内容。
 
-##### data属性
-
-该属性值为`parse`函数的返回值。因此请勿在`parse`函数内使用该属性。
-
 
 
 #### 解析函数：
@@ -207,13 +204,11 @@ class MyCommand extends Command<C, D> {
 
 该函数应返回一个字符串数组。假如它返回了`["天气", "weather"]`，并且你定义`parse`函数时，当接收到用户消息后，会判断消息内容是否等于"天气"或者"weather"，若相等，则会执行`user`或`group`或`both`函数，若不相等，则会进行下一个命令的判断。(该函数的触发同样受到下述`trigger`修饰器的约束)
 
-
-
 ##### parse函数
 
-上述`directive`函数无法实现自定义命令解析，比如想要获取 "天气 西安" 这一消息中的城市，则需要使用该函数手动处理，该函数的返回值信息会赋给`data`属性，从而可供其他函数访问使用。**警告：**若提供了该函数，则不会再使用`directive`函数进行命令处理。
+上述`directive`函数无法实现自定义命令解析，比如想要获取 "天气 西安" 这一消息中的城市，则需要使用该函数手动处理，该函数的返回值信息可在`user`/`group`/`both`函数参数中访问。**提醒：**若提供了该函数，则不会再使用`directive`函数进行命令处理。
 
-这两个函数同时存在是允许的，并且十分建议不要省略`directive`函数的声明，因为通过该函数的返回值内容可以提升代码阅读性，方便识别该命令的用途。
+但这两个函数是允许同时存在的，并且十分建议不要省略`directive`函数的声明，因为通过该函数的返回值内容可以提升代码阅读性，方便识别该命令的用途。
 
 
 
@@ -229,7 +224,7 @@ class MyCommand extends Command<C, D> {
 
 ##### both函数
 
-当你的命令处理逻辑针对用户和群组比较相似时，同时提供`user`和`group`函数会略微繁琐，则可使用该函数来处理。**警告：**若提供了该函数，则`use`和`group`函数会无效。
+当你的命令处理逻辑针对用户和群组比较相似时，同时提供`user`和`group`函数会略微繁琐，则可使用该函数来处理。**提醒：**若提供了该函数，则`use`和`group`函数会无效。
 
 ##### session函数
 
@@ -243,6 +238,7 @@ class MyCommand extends Command<C, D> {
 
 | key             | type                                                         | description                                                  | scope                   |
 | --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------- |
+| data            | any                                                          | 该值是`parse`函数的返回值                                    | user,group,both         |
 | message         | Message[]                                                    | 二维数组形式表示的用户发来的消息                             | all                     |
 | rawMessage      | string                                                       | 字符串形式表示的用户发来的消息 (实际就是`CQHelper.toTextString(messages)`) | all                     |
 | requestBody     | any                                                          | 原始的http请求body数据，具体内容可查看HTTP插件文档。         | all                     |
@@ -265,7 +261,7 @@ class MyCommand extends Command<C, D> {
 ##### 处理函数
 
 - 无返回值或是返回了`undefined`：表示处理完毕，但不返回任何消息
-- `{atSender:boolean, content: string}`：为一个对象时，`atSender`表示是否艾特发送者(仅群聊有效)，`content`为响应内容
+- `{ atSender:boolean, content: string }`：为一个对象时，`atSender`表示是否艾特发送者(仅群聊有效)，`content`为响应内容
 - `string[]`：表示连续响应多条消息
 - `string`：表示响应一条不艾特发送者的消息
 
@@ -434,11 +430,13 @@ session函数指的是以"session"单词开头的写在继承类里的函数，�
 
 - `setEnd(): Promise<void>` 
 
-  调用该函数表示结束当前会话上下文，当机器人再次接收到消息后，将会按照常规的解析流程处理：即先判断`directive`函数的返回值或者是执行`parse`函数，然后执行`group`或`user`函数。
+  调用该函数表示结束当前会话上下文，当机器人再次接收到消息后，将会按照常规的解析流程处理：即先判断`directive`函数的返回值或者是执行`parse`函数，然后执行`group`或`user`函数。**警告：**请别忘记调用该函数来终止会话，否则在session过期前会一直执行本次的session函数。
 
 
 
 现在我们改造下上面Demo中的代码，来演示session函数的使用，运行前请确保 ：
+
+**警告：** 下述例子设置了`count`实例属性，由于HTTP请求共享命令类对象和异步处理原因，因此无法确保`count`属性的值与预期一致。故强烈不建议在类中设置实例属性，保证每个请求的"独立与隔离"。下述代码仅为颜色session函数的使用，在实际场景下，共享数据可存储在数据库等位置。
 
 - redis处于运行状态并可访问其默认的6379端口
 - 依赖安装：`npm i handy-redis`
@@ -570,11 +568,3 @@ else
        commands: [new ACommand(), new BCommand(), new DefaultCommand()]
    })
    ```
-
-## 更新日志
-### [Changelog](https://github.com/XHMM/lemon-bot/blob/master/CHANGELOG.md)
-
-
-## 其他
-
-该项目仍处于早期开发版，所以功能相对不是太过完善，也存在着诸多问题，希望大家踊跃提出issues。

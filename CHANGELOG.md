@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.4.0 (2019年10月20日)
+### Breaking changes:
+- `parse`函数的返回值不再是赋给`this.data`，而是需要在`user`/`group`/`both`函数参数中使用`data`属性来获取。  
+   迁移方式：若是使用`typescript`，则使用`tsc`编译会触发`Property data doesn't exist ...`，然后进行相关文件的改写。若是使用`javascript`，则使用`ctrl+f`搜索含有`this.data`语句的文件，然后进行改写。
+### Fix bugs:
+- async session函数未被await
+
 ## 0.3.1 (2019年10月20日)
 ### Fix bugs:
 - 使用指令数组判断含艾特的消息时空格信息导致不成功
