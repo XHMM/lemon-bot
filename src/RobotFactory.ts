@@ -33,10 +33,10 @@ type CommandsMap = Record<
     port: PortV;
     commands: CreateParams['commands'];
     session: CreateParams['session'];
-    debugLogger: any
-    logger: any
-    secret: string
-    httpPlugin: HttpPlugin
+    debugLogger: any;
+    logger: any;
+    secret: string;
+    httpPlugin: HttpPlugin;
   }
 >;
 type AppsMap = Record<PortK, [Express, 'listening' | 'idle']>;
@@ -58,8 +58,8 @@ export class RobotFactory {
   }: CreateParams<C>): CreateReturn {
     // note: Object.keys(obj)返回的都是字符串类型！
 
-    const debugLogger = Logger.createDebugLoggerWithLabel(robot+'');
-    const logger = Logger.createLoggerWithLabel(robot+'');
+    const debugLogger = Logger.createDebugLoggerWithLabel(robot + '');
+    const logger = Logger.createLoggerWithLabel(robot + '');
 
     {
       // 验证commands参数是否都合法
@@ -70,12 +70,12 @@ export class RobotFactory {
       }
       if (hasRepeat(allDirectives)) throw new Error('所有的Command对象间的指令不能重复');
 
-      // ----- 验证robotQQ是否合法
+      // 验证robotQQ是否合法
       if (Object.keys(RobotFactory.commandsMap).includes(robot + ''))
         throw new Error(`机器人${robot}已存在，不可重复创建`);
 
-      // ----- 注册信息
-      debugLogger.debug(` - [插件] 请确保HTTP Plugin在监听${httpPlugin.endpoint}`)
+      // 缓存每个机器人可处理的命令
+      debugLogger.debug(` - [插件] 请确保HTTP Plugin在监听${httpPlugin.endpoint}`);
       if (session) debugLogger.debug(` - [功能] session函数处理已启用`);
       else debugLogger.debug(` - [功能] session函数处理未开启`);
       for (const [index, command] of Object.entries(commands)) {
@@ -84,7 +84,7 @@ export class RobotFactory {
             command.scope
           }  ${
             command.scope === Scope.user ? '' : `是否艾特:${command.triggerType ? command.triggerType : TriggerType.at}`
-          }${+index === commands.length - 1 ? '\n' : ''}`
+          }`
         );
         command.context = context || null; // 注册context
         command.httpPlugin = httpPlugin; // 注册httpPlugin
@@ -97,14 +97,15 @@ export class RobotFactory {
         debugLogger,
         logger,
         secret,
-        httpPlugin
+        httpPlugin,
       };
     }
 
-    // ----- 若该端口下服务器未创建，则创建并注册
+    // 若该端口下服务器未创建，则创建并注册
     if (!Object.keys(RobotFactory.appsMap).includes(port + '')) {
-      Logger.debug(`[服务器]端口号为${port}的服务器已被创建`)
-      createServer(RobotFactory.appsMap, RobotFactory.commandsMap, port)
+      Logger.debug(`[服务器]端口号为${port}的服务器已创建`);
+      const app = createServer(RobotFactory.commandsMap, port);
+      RobotFactory.appsMap[port + ''] = [app, 'idle'];
     }
 
     // 启动服务器，即调用listen方法
@@ -141,63 +142,11 @@ export class RobotFactory {
   }
 }
 
-async function handleReplyData(
-  res: Response,
-  replyData,
-  deps: {
-    matchUserScope: boolean;
-    matchGroupScope: boolean;
-    httpPlugin: HttpPlugin;
-    userNumber: number;
-    groupNumber: number;
-  }
-): Promise<void> {
-  // TODO: TS中自定义类型判断如何做type guard？
-  const replyType = getType(replyData);
-  if (replyType === 'array') {
-    for (const reply of replyData as string[]) {
-      if (deps.matchUserScope) await deps.httpPlugin.sendPrivateMsg(deps.userNumber, reply.toString());
-      if (deps.matchGroupScope) {
-        await deps.httpPlugin.sendGroupMsg(deps.groupNumber, reply.toString());
-      }
-    }
-    res.end();
-    return;
-  } else if (replyType === 'object') {
-    res.json({
-      at_sender: typeof replyData.atSender === 'boolean' ? replyData.atSender : false,
-      reply: replyData.content || 'Hi',
-    });
-    return;
-  } else if (replyType === 'string') {
-    res.json({
-      at_sender: false,
-      reply: replyData as string,
-    });
-    return;
-  } else {
-    try {
-      // 尝试转换为字符串，若不为空则返回
-      const str = replyData.toString();
-      if (str)
-        res.json({
-          at_sender: false,
-          reply: str as string,
-        });
-      else res.end();
-      return;
-    } catch (e) {
-      res.end();
-    }
-  }
-}
-
-function createServer(appsMap: AppsMap,commandsMap: Readonly<CommandsMap>, port: number): void {
+function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express {
   const express = require('express');
   const crypto = require('crypto');
   const app = express();
   app.use(express.json());
-  appsMap[port + ''] = [app, 'idle'];
 
   app.post('/coolq', async (req: Request, res: Response) => {
     const robot = +req.header('X-Self-ID')!;
@@ -220,7 +169,7 @@ function createServer(appsMap: AppsMap,commandsMap: Readonly<CommandsMap>, port:
      */
     if (serverPort !== port) {
       logger.warn(`[请求终止] 请确保HTTP插件配置文件的post_url端口号与传给RobotFactory.create的port参数一致`);
-      res.end()
+      res.end();
       return;
     }
     if (secret) {
@@ -280,7 +229,7 @@ function createServer(appsMap: AppsMap,commandsMap: Readonly<CommandsMap>, port:
     // 若找到了sessionData，则必须要提供相关处理数据，否则报错
     if (sessionData) {
       for (const command of commands) {
-        const className = command.constructor.name
+        const className = command.constructor.name;
         if (sessionData.className !== className) continue;
         // @ts-ignore
         const sessionNames = Object.getOwnPropertyNames(command.__proto__)
@@ -289,12 +238,12 @@ function createServer(appsMap: AppsMap,commandsMap: Readonly<CommandsMap>, port:
         if (sessionNames.includes(sessionData.sessionName)) {
           const setNext = session
             ? session.setSession.bind(session, numbers, {
-              className: sessionData.className,
-              historyMessage: {
-                ...sessionData.historyMessage,
-                [sessionData.sessionName]: message,
-              },
-            })
+                className: sessionData.className,
+                historyMessage: {
+                  ...sessionData.historyMessage,
+                  [sessionData.sessionName]: message,
+                },
+              })
             : noSessionError;
           const setEnd = session ? session.removeSession.bind(session, numbers) : noSessionError;
           const sessionHandlerParams: SessionHandlerParams = {
@@ -309,16 +258,13 @@ function createServer(appsMap: AppsMap,commandsMap: Readonly<CommandsMap>, port:
           const replyData = command[`session${sessionData.sessionName}`].call(command, sessionHandlerParams);
           const messageFromType = getMessageFromTypeFromNumbers(numbers);
           await handleReplyData(res, replyData, {
-            matchGroupScope:
-              messageFromType === MessageFromType.group || messageFromType === MessageFromType.anonymous,
+            matchGroupScope: messageFromType === MessageFromType.group || messageFromType === MessageFromType.anonymous,
             matchUserScope: messageFromType === MessageFromType.user,
             userNumber,
             groupNumber,
             httpPlugin,
           });
-          debugLogger.debug(
-            `[消息处理] 使用${className}类的session${sessionData.sessionName}函数处理完毕`
-          );
+          debugLogger.debug(`[消息处理] 使用${className}类的session${sessionData.sessionName}函数处理完毕`);
           return;
         }
       }
@@ -344,11 +290,8 @@ function createServer(appsMap: AppsMap,commandsMap: Readonly<CommandsMap>, port:
 
         // 判断当前命令和消息源是否匹配
         const matchGroupScope =
-          (scope === Scope.group || scope === Scope.both) &&
-          (isGroupMessage || isAnonymousMessage)
-        const matchUserScope =
-          (scope === Scope.user || scope === Scope.both) &&
-          isUserMessage
+          (scope === Scope.group || scope === Scope.both) && (isGroupMessage || isAnonymousMessage);
+        const matchUserScope = (scope === Scope.user || scope === Scope.both) && isUserMessage;
 
         if (matchGroupScope || matchUserScope) {
           if (matchGroupScope) {
@@ -382,14 +325,13 @@ function createServer(appsMap: AppsMap,commandsMap: Readonly<CommandsMap>, port:
             if (typeof parsedData === 'undefined') {
               continue;
             }
-            debugLogger.debug(`[消息处理] 使用${className}类的parse函数处理通过`)
+            debugLogger.debug(`[消息处理] 使用${className}类的parse函数处理通过`);
           }
           // 若无parse函数，则直接和指令集进行相等性匹配，不匹配则继续循环
           else {
-            if (!directives.includes(CQRawMessageHelper.removeAt(rawMessage))) {
-              continue;
-            }
-            debugLogger.debug(`[消息处理] 使用${className}类的指令集处理通过`)
+            console.log('相等性：', rawMessage, CQRawMessageHelper.removeAt(rawMessage));
+            if (!directives.includes(CQRawMessageHelper.removeAt(rawMessage))) continue;
+            debugLogger.debug(`[消息处理] 使用${className}类的指令集处理通过`);
           }
           command.data = parsedData || null; // 注册data
 
@@ -401,17 +343,15 @@ function createServer(appsMap: AppsMap,commandsMap: Readonly<CommandsMap>, port:
               messageFromType: getMessageFromTypeFromNumbers(numbers),
               setNext: session
                 ? session.setSession.bind(session, numbers, {
-                  className,
-                  historyMessage: {
-                    both: message,
-                  },
-                })
+                    className,
+                    historyMessage: {
+                      both: message,
+                    },
+                  })
                 : noSessionError,
             });
             debugLogger.debug(
-              `[消息处理] 使用${className}类的both函数处理完毕${
-                typeof replyData === 'undefined' ? '(无返回值)' : ''
-              }`
+              `[消息处理] 使用${className}类的both函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
             );
           } else {
             if (matchGroupScope && group) {
@@ -421,11 +361,11 @@ function createServer(appsMap: AppsMap,commandsMap: Readonly<CommandsMap>, port:
                 isAt,
                 setNext: session
                   ? session.setSession.bind(session, numbers, {
-                    className,
-                    historyMessage: {
-                      group: message,
-                    },
-                  })
+                      className,
+                      historyMessage: {
+                        group: message,
+                      },
+                    })
                   : noSessionError,
               });
               debugLogger.debug(
@@ -441,17 +381,15 @@ function createServer(appsMap: AppsMap,commandsMap: Readonly<CommandsMap>, port:
                 fromGroup: undefined,
                 setNext: session
                   ? session.setSession.bind(session, numbers, {
-                    className,
-                    historyMessage: {
-                      user: message,
-                    },
-                  })
+                      className,
+                      historyMessage: {
+                        user: message,
+                      },
+                    })
                   : noSessionError,
               });
               debugLogger.debug(
-                `[消息处理] 使用${className}类的user函数处理完毕${
-                  typeof replyData === 'undefined' ? '(无返回值)' : ''
-                }`
+                `[消息处理] 使用${className}类的user函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
               );
             }
           }
@@ -469,4 +407,57 @@ function createServer(appsMap: AppsMap,commandsMap: Readonly<CommandsMap>, port:
     res.end();
     return;
   });
+
+  return app;
+}
+
+async function handleReplyData(
+  res: Response,
+  replyData,
+  deps: {
+    matchUserScope: boolean;
+    matchGroupScope: boolean;
+    httpPlugin: HttpPlugin;
+    userNumber: number;
+    groupNumber: number;
+  }
+): Promise<void> {
+  // TODO: TS中自定义类型判断如何做type guard？
+  const replyType = getType(replyData);
+  if (replyType === 'array') {
+    for (const reply of replyData as string[]) {
+      if (deps.matchUserScope) await deps.httpPlugin.sendPrivateMsg(deps.userNumber, reply.toString());
+      if (deps.matchGroupScope) {
+        await deps.httpPlugin.sendGroupMsg(deps.groupNumber, reply.toString());
+      }
+    }
+    res.end();
+    return;
+  } else if (replyType === 'object') {
+    res.json({
+      at_sender: typeof replyData.atSender === 'boolean' ? replyData.atSender : false,
+      reply: replyData.content || 'Hi',
+    });
+    return;
+  } else if (replyType === 'string') {
+    res.json({
+      at_sender: false,
+      reply: replyData as string,
+    });
+    return;
+  } else {
+    try {
+      // 尝试转换为字符串，若不为空则返回
+      const str = replyData.toString();
+      if (str)
+        res.json({
+          at_sender: false,
+          reply: str as string,
+        });
+      else res.end();
+      return;
+    } catch (e) {
+      res.end();
+    }
+  }
 }

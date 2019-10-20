@@ -92,7 +92,7 @@ export class CQMessageHelper {
 export class CQRawMessageHelper {
   static removeAt(str: string): string {
     const reg = /\[CQ:at,qq=\d+]/;
-    return str.replace(reg, '');
+    return str.replace(reg, '').trim();
   }
 
   static isFileMessage(
