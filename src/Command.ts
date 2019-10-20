@@ -89,6 +89,7 @@ export type SessionHandlerReturn = HandlerReturn;
 type OrPromise<T> = T | Promise<T>;
 
 export abstract class Command<C = unknown, D = unknown> {
+  static blackList = ['scope', 'directives', 'context', 'httpPlugin', 'includeGroup', 'excludeGroup', 'includeUser', 'excludeUser', 'triggerType', 'triggerScope']
   // 下述属性是在node启动后被注入给了实例对象，之后不会再改变
   scope: Scope; // // [在该类构造函数内被注入] 使用该属性来判断该命令的作用域
   directives: string[]; // [在create阶段使用该类Command.normalizeDirectives函数被注入]

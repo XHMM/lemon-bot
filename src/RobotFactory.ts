@@ -106,6 +106,33 @@ export class RobotFactory {
       RobotFactory.appsMap[port + ''] = [app, 'idle'];
     }
 
+    commands.forEach((cmd, idx) => {
+      commands[idx] = new Proxy(cmd, {
+        set(target, key: any, value) {
+          if (Command.blackList.includes(key)) {
+            Logger.warn(`无法变更Command继承类的实例对象的"${key}"属性`)
+            return false;
+          }
+          // @ts-ignore
+          Logger.warn(`检测到命令类${target.__proto__.constructor.name}的实例对象添加了"${key}"属性。强烈不建议给命令类添加任何的自定义属性，因为不同请求会共享同一实例，由于异步原因可能会造成数据不一致。`);
+          target[key] = value;
+          return true;
+        },
+        deleteProperty(target, key: any) {
+          if (Command.blackList.includes(key)) {
+            Logger.warn(`无法删除Command继承类的实例对象的"${key}"属性`)
+            return false;
+          }
+          delete target[key]
+          return true;
+        },
+        defineProperty(target, property, descriptor) {
+          Logger.warn(`对Command继承类的实例对象使用defineProperty已被阻止，请使用dot语法赋值`)
+          return false;
+        }
+      });
+    });
+
     // 启动服务器，即调用listen方法
     function start(): Promise<void> {
       return new Promise<void>((resolve, reject) => {
