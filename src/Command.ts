@@ -46,26 +46,29 @@ export type ParseReturn = any;
 type SetNextFn = (sessionName: string, expireSeconds?: number) => Promise<void>; // 设置session name和过期时间
 type SetEndFn = () => Promise<void>; // 删除session
 
+interface HandlerBaseParams extends BaseParams {
+  setNext: SetNextFn;
+
+}
 // user函数
-export interface UserHandlerParams extends BaseParams {
+export interface UserHandlerParams<D = any> extends HandlerBaseParams {
   fromUser: number;
   fromGroup: undefined;
-  setNext: SetNextFn;
+  data: D
 }
 // group函数
-export interface GroupHandlerParams extends BaseParams {
+export interface GroupHandlerParams<D = any> extends HandlerBaseParams {
   fromGroup: number;
   isAt: boolean;
-  setNext: SetNextFn;
+  data: D
 }
 // both函数
-export interface BothHandlerParams extends BaseParams {
+export interface BothHandlerParams<D = any> extends HandlerBaseParams {
   messageFromType: MessageFromType;
-  setNext: SetNextFn;
+  data: D
 }
 // session函数
-export interface SessionHandlerParams extends BaseParams {
-  setNext: SetNextFn;
+export interface SessionHandlerParams extends HandlerBaseParams {
   setEnd: SetEndFn;
   historyMessage: Record<string, Message[]>; // { user/group/both: [..],  sessionName1: [..],  sessionName2: [..]}
 }
@@ -77,6 +80,11 @@ export type HandlerReturn =
   | string[]
   | string
   | void;
+export type UserHandlerReturn = HandlerReturn;
+export type GroupHandlerReturn = HandlerReturn;
+export type BothHandlerReturn = HandlerReturn;
+export type SessionHandlerReturn = HandlerReturn;
+
 
 type OrPromise<T> = T | Promise<T>;
 
@@ -93,9 +101,6 @@ export abstract class Command<C = unknown, D = unknown> {
   excludeUser?: number[]; // 给user函数使用@exclude注入
   triggerType?: TriggerType; // 给group/both使用@trigger进行设置，默认按at处理。请勿对其赋值，会导致修饰器无效！！！
   triggerScope?: TriggerScope;
-
-  // 下述属性是在接收到http请求后被给实例对象，因此该值是动态变化的
-  data: D; // [在请求处理中被注入] 值为parse函数的返回值，默认为null
 
   constructor() {
     if (this.directive) assertType(this.directive, 'function');
@@ -138,9 +143,9 @@ export abstract class Command<C = unknown, D = unknown> {
   directive?(): string[];
   parse?(params: ParseParams): OrPromise<ParseReturn>;
 
-  user?(params: UserHandlerParams): OrPromise<HandlerReturn>;
-  group?(params: GroupHandlerParams): OrPromise<HandlerReturn>;
-  both?(params: BothHandlerParams): OrPromise<HandlerReturn>;
+  user?(params: UserHandlerParams<D>): OrPromise<HandlerReturn>;
+  group?(params: GroupHandlerParams<D>): OrPromise<HandlerReturn>;
+  both?(params: BothHandlerParams<D>): OrPromise<HandlerReturn>;
 }
 
 // 用于user和group。指定该选项时，只有这里面的qq/qq群可触发该命令

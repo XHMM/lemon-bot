@@ -61,45 +61,43 @@ export class RobotFactory {
     const debugLogger = Logger.createDebugLoggerWithLabel(robot + '');
     const logger = Logger.createLoggerWithLabel(robot + '');
 
-    {
-      // 验证commands参数是否都合法
-      const allDirectives: Directive[] = [];
-      for (const command of commands) {
-        Command.validate(command);
-        allDirectives.push(...command.directives);
-      }
-      if (hasRepeat(allDirectives)) throw new Error('所有的Command对象间的指令不能重复');
-
-      // 验证robotQQ是否合法
-      if (Object.keys(RobotFactory.commandsMap).includes(robot + ''))
-        throw new Error(`机器人${robot}已存在，不可重复创建`);
-
-      // 缓存每个机器人可处理的命令
-      debugLogger.debug(` - [插件] 请确保HTTP Plugin在监听${httpPlugin.endpoint}`);
-      if (session) debugLogger.debug(` - [功能] session函数处理已启用`);
-      else debugLogger.debug(` - [功能] session函数处理未开启`);
-      for (const [index, command] of Object.entries(commands)) {
-        debugLogger.debug(
-          ` - [命令] 指令集:${command.directives.join(',')}  解析函数:${command.parse ? '有' : '无'}  作用域:${
-            command.scope
-          }  ${
-            command.scope === Scope.user ? '' : `是否艾特:${command.triggerType ? command.triggerType : TriggerType.at}`
-          }`
-        );
-        command.context = context || null; // 注册context
-        command.httpPlugin = httpPlugin; // 注册httpPlugin
-      }
-      RobotFactory.commandsMap[robot + ''] = {
-        commands: commands,
-        port,
-        session,
-        qq: robot,
-        debugLogger,
-        logger,
-        secret,
-        httpPlugin,
-      };
+    // 验证commands参数是否都合法
+    const allDirectives: Directive[] = [];
+    for (const command of commands) {
+      Command.validate(command);
+      allDirectives.push(...command.directives);
     }
+    if (hasRepeat(allDirectives)) throw new Error('所有的Command对象间的指令不能重复');
+
+    // 验证robotQQ是否合法
+    if (Object.keys(RobotFactory.commandsMap).includes(robot + ''))
+      throw new Error(`机器人${robot}已存在，不可重复创建`);
+
+    // 缓存每个机器人可处理的命令
+    debugLogger.debug(` - [插件] 请确保HTTP Plugin在监听${httpPlugin.endpoint}`);
+    if (session) debugLogger.debug(` - [功能] session函数处理已启用`);
+    else debugLogger.debug(` - [功能] session函数处理未开启`);
+    for (const [index, command] of Object.entries(commands)) {
+      debugLogger.debug(
+        ` - [命令] 指令集:${command.directives.join(',')}  解析函数:${command.parse ? '有' : '无'}  作用域:${
+          command.scope
+        }  ${
+          command.scope === Scope.user ? '' : `是否艾特:${command.triggerType ? command.triggerType : TriggerType.at}`
+        }`
+      );
+      command.context = context || null; // 注册context
+      command.httpPlugin = httpPlugin; // 注册httpPlugin
+    }
+    RobotFactory.commandsMap[robot + ''] = {
+      commands: commands,
+      port,
+      session,
+      qq: robot,
+      debugLogger,
+      logger,
+      secret,
+      httpPlugin,
+    };
 
     // 若该端口下服务器未创建，则创建并注册
     if (!Object.keys(RobotFactory.appsMap).includes(port + '')) {
@@ -329,17 +327,16 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
           }
           // 若无parse函数，则直接和指令集进行相等性匹配，不匹配则继续循环
           else {
-            console.log('相等性：', rawMessage, CQRawMessageHelper.removeAt(rawMessage));
             if (!directives.includes(CQRawMessageHelper.removeAt(rawMessage))) continue;
             debugLogger.debug(`[消息处理] 使用${className}类的指令集处理通过`);
           }
-          command.data = parsedData || null; // 注册data
 
           let replyData;
           // 若提供了both函数，则不再调用user/group函数
           if ((matchUserScope || matchGroupScope) && both) {
             replyData = await both({
               ...baseInfo,
+              data: parsedData,
               messageFromType: getMessageFromTypeFromNumbers(numbers),
               setNext: session
                 ? session.setSession.bind(session, numbers, {
@@ -357,6 +354,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
             if (matchGroupScope && group) {
               replyData = await group({
                 ...baseInfo,
+                data: parsedData,
                 fromGroup: baseInfo.fromGroup!,
                 isAt,
                 setNext: session
@@ -377,6 +375,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
             if (matchUserScope && user) {
               replyData = await user({
                 ...baseInfo,
+                data: parsedData,
                 fromUser: baseInfo.fromUser!,
                 fromGroup: undefined,
                 setNext: session
