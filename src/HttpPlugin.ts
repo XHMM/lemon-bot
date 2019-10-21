@@ -5,6 +5,7 @@ import { objectToQS, conditionalObjectMerge } from '@xhmm/utils';
 enum APIList {
   'send_private_msg' = 'send_private_msg',
   'send_group_msg' = 'send_group_msg',
+  'send_msg' = 'send_msg',
   'get_group_list' = 'get_group_list',
   'get_group_member_list' = 'get_group_member_list',
   'get_image' = 'get_image',
@@ -13,6 +14,9 @@ interface SendPrivateMsgResponse {
   message_id: number;
 }
 interface SendGroupMsgResponse {
+  message_id: number;
+}
+interface SendMsgResponse {
   message_id: number;
 }
 type GetGroupListResponse = Array<{
@@ -80,6 +84,20 @@ export class HttpPlugin {
   async sendGroupMsg(groupQQ: number, message: string, escape = false): Promise<SendGroupMsgResponse> {
     return await this.getResponseData<SendGroupMsgResponse>(APIList.send_group_msg, {
       group_id: groupQQ,
+      message,
+      auto_escape: escape,
+    });
+  }
+
+  async sendMsg(
+    numbers: { userNumber?: number; groupNumber?: number; discussNumber?: number },
+    message: string,
+    escape = false
+  ): Promise<SendMsgResponse> {
+    return await this.getResponseData(APIList.send_msg, {
+      user_id: numbers.userNumber,
+      group_id: numbers.groupNumber,
+      discuss_id: numbers.discussNumber,
       message,
       auto_escape: escape,
     });
