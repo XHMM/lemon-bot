@@ -237,7 +237,7 @@ class MyCommand extends Command<C> {
 | --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------- |
 | data            | any                                                          | 该值是`parse`函数的返回值                                    | user,group,both         |
 | message         | Message[]                                                    | 二维数组形式表示的用户发来的消息                             | all                     |
-| rawMessage      | string                                                       | 字符串形式表示的用户发来的消息 (实际就是`CQHelper.toTextString(messages)`) | all                     |
+| rawMessage      | string                                                       | 字符串形式表示的用户发来的消息 | all                     |
 | requestBody     | any                                                          | 原始的http请求body数据，具体内容可查看HTTP插件文档。         | all                     |
 | fromUser        | number\|null                                                 | 发送消息者的QQ，为null时表明是群内匿名消息                   | all                     |
 | fromGroup       | number\|undefined                                            | 发送消息者所在的Q群，使用`user`函数时该值为undefined         | all                     |
@@ -245,7 +245,7 @@ class MyCommand extends Command<C> {
 | isAt            | boolean                                                      | 是否艾特了机器人                                             | group                   |
 | messageFromType | MessageFromType                                              | 消息来自方：group值群聊, anonymous指群内匿名聊, user指独聊   | both                    |
 | setEnd          | () => Promise<void>                                          | 异步函数，设置会话上下文结束                                 | session                 |
-| historyMessages | Record<string, Messages>                                     | 一个对象，保存了历史会话消息，其中key的值为`group`或`user`和`setNext`指定的名称 | session                 |
+| historyMessage | Record<string, Message[]>                                     | 一个对象，保存了历史会话消息，其中key的值为`group`或`user`和`setNext`指定的名称 | session                 |
 | setNext         | (sessionName: string, expireSeconds?: number) => Promise<void> | 异步函数，设置下一个需要执行的session函数                    | user,group,both,session |
 
 #### 函数返回值：
