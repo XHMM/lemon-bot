@@ -1,3 +1,5 @@
+import { MessageFromType } from './Command';
+
 type MessageBase<T extends string, D> = {
   type: T;
   data: D;
@@ -151,5 +153,90 @@ export class CQRawMessageHelper {
     } catch (e) {
       return null;
     }
+  }
+}
+
+/*
+* 消息分类如下：
+*   用户消息(userMessage)
+*   QQ群消息(qqGroupMessage) = QQ群匿名消息(qqGroupAnonymousMessage) + QQ群普通消息(qqGroupNormalMessage)
+*   讨论组消息(discussMessage) = 讨论组匿名消息(discussAnonymousMessage) + 讨论组普通消息(discussNormalMessage)
+*   群消息(groupMessage) = QQ群消息 + 讨论组消息
+* */
+export class CQMessageFromTypeHelper {
+  static getMessageFromType({ message_type, sub_type }): MessageFromType {
+    if (message_type === 'group' && sub_type === 'normal') return MessageFromType.qqGroupNormal;
+    if (message_type === 'group' && sub_type === 'anonymous') return MessageFromType.qqGroupAnonymous;
+    if (message_type === 'private' && sub_type === 'friend') return MessageFromType.userFriend;
+    if (message_type === 'private' && sub_type === 'group') return MessageFromType.userGroup;
+    if (message_type === 'private' && sub_type === 'discuss') return MessageFromType.userDiscuss;
+    if (message_type === 'private' && sub_type === 'other') return MessageFromType.userOther;
+    if (message_type === 'discuss') return MessageFromType.discussNormal;
+    // TODO: 文档没写讨论组的匿名信息，需要自测下！
+    return MessageFromType.unknown;
+  }
+
+  // 是 用户消息
+  static isUserMessage(messageFromType: MessageFromType): boolean {
+    return (
+      messageFromType === MessageFromType.userFriend ||
+      messageFromType === MessageFromType.userGroup ||
+      messageFromType === MessageFromType.userDiscuss ||
+      messageFromType === MessageFromType.userOther
+    );
+  }
+
+  // 是 群组普通或匿名消息
+  static isGroupMessage(messageFromType: MessageFromType): boolean {
+    return (
+      CQMessageFromTypeHelper.isGroupNormalMessage(messageFromType) ||
+      CQMessageFromTypeHelper.isGroupAnonymousMessage(messageFromType)
+    );
+  }
+  // 是 群组普通消息
+  static isGroupNormalMessage(messageFromType: MessageFromType): boolean {
+    return (
+      CQMessageFromTypeHelper.isQQGroupNormalMessage(messageFromType) ||
+      CQMessageFromTypeHelper.isDiscussNormalMessage(messageFromType)
+    );
+  }
+  // 是 群组匿名消息
+  static isGroupAnonymousMessage(messageFromType: MessageFromType): boolean {
+    return (
+      CQMessageFromTypeHelper.isQQGroupAnonymousMessage(messageFromType) ||
+      CQMessageFromTypeHelper.isDiscussAnonymousMessage(messageFromType)
+    );
+  }
+
+  // 是 Q群消息
+  static isQQGroupMessage(messageFromType: MessageFromType): boolean {
+    return (
+      CQMessageFromTypeHelper.isQQGroupNormalMessage(messageFromType) ||
+      CQMessageFromTypeHelper.isQQGroupAnonymousMessage(messageFromType)
+    );
+  }
+  // 是 Q群普通消息
+  static isQQGroupNormalMessage(messageFromType: MessageFromType): boolean {
+    return messageFromType === MessageFromType.qqGroupNormal;
+  }
+  // 是 Q群匿名消息
+  static isQQGroupAnonymousMessage(messageFromType: MessageFromType): boolean {
+    return messageFromType === MessageFromType.qqGroupAnonymous;
+  }
+
+  // 是 讨论组消息
+  static isDiscussMessage(messageFromType: MessageFromType): boolean {
+    return (
+      CQMessageFromTypeHelper.isDiscussNormalMessage(messageFromType) ||
+      CQMessageFromTypeHelper.isDiscussAnonymousMessage(messageFromType)
+    );
+  }
+  // 是 讨论组普通消息
+  static isDiscussNormalMessage(messageFromType: MessageFromType): boolean {
+    return messageFromType === MessageFromType.discussNormal;
+  }
+  // 是 讨论组匿名消息
+  static isDiscussAnonymousMessage(messageFromType: MessageFromType): boolean {
+    return messageFromType === MessageFromType.discussAnonymous;
   }
 }

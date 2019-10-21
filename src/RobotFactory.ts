@@ -1,10 +1,9 @@
 import { Express, Request, Response } from 'express';
 import { hasRepeat, getType } from '@xhmm/utils';
-import { Command, Scope, TriggerType, SessionHandlerParams, Numbers, TriggerScope } from './Command';
+import { Command, Scope, TriggerType, SessionHandlerParams, TriggerScope, RequestIdentity, MessageFromType } from './Command';
 import { HttpPlugin } from './HttpPlugin';
-import { CQMessageHelper, CQRawMessageHelper } from './CQHelper';
+import { CQMessageHelper, CQRawMessageHelper, CQMessageFromTypeHelper } from './CQHelper';
 import { Session, SessionData } from './Session';
-import { getMessageFromTypeFromRequest, getMessageFromTypeFromNumbers, MessageFromType } from './utils';
 import { Logger } from './Logger';
 
 interface CreateParams<C = unknown> {
@@ -74,7 +73,7 @@ export class RobotFactory {
       throw new Error(`机器人${robot}已存在，不可重复创建`);
 
     // 缓存每个机器人可处理的命令
-    debugLogger.debug(` - [插件] 请确保HTTP Plugin在监听${httpPlugin.endpoint}`);
+    debugLogger.debug(` - [插件] 正在监听运行在${httpPlugin.endpoint}的HTTP Plugin事件上报`);
     if (session) debugLogger.debug(` - [功能] session函数处理已启用`);
     else debugLogger.debug(` - [功能] session函数处理未开启`);
     for (const [index, command] of Object.entries(commands)) {
@@ -110,26 +109,30 @@ export class RobotFactory {
       commands[idx] = new Proxy(cmd, {
         set(target, key: any, value) {
           if (Command.blackList.includes(key)) {
-            Logger.warn(`无法变更Command继承类的实例对象的"${key}"属性`)
+            Logger.warn(`无法变更Command继承类的实例对象的"${key}"属性`);
             return false;
           }
-          // @ts-ignore
-          Logger.warn(`检测到命令类${target.__proto__.constructor.name}的实例对象添加了"${key}"属性。强烈不建议给命令类添加任何的自定义属性，因为不同请求会共享同一实例，由于异步原因可能会造成数据不一致。`);
+          Logger.warn(
+            `检测到命令类${
+              // @ts-ignore
+              target.__proto__.constructor.name
+            }的实例对象添加了"${key}"属性。强烈不建议给命令类添加任何的自定义属性，因为不同请求会共享同一实例，由于异步原因可能会造成数据不一致。`
+          );
           target[key] = value;
           return true;
         },
         deleteProperty(target, key: any) {
           if (Command.blackList.includes(key)) {
-            Logger.warn(`无法删除Command继承类的实例对象的"${key}"属性`)
+            Logger.warn(`无法删除Command继承类的实例对象的"${key}"属性`);
             return false;
           }
-          delete target[key]
+          delete target[key];
           return true;
         },
         defineProperty(target, property, descriptor) {
-          Logger.warn(`对Command继承类的实例对象使用defineProperty已被阻止，请使用dot语法赋值`)
+          Logger.warn(`对Command继承类的实例对象使用defineProperty已被阻止，请使用dot语法赋值`);
           return false;
-        }
+        },
       });
     });
 
@@ -218,38 +221,40 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
     const commands = commandsMap[robot].commands;
     const message = req.body.message && CQMessageHelper.normalizeMessage(req.body.message);
     const rawMessage = req.body.raw_message && req.body.raw_message;
-    const messageFromType = getMessageFromTypeFromRequest(req);
-    if (messageFromType === 'unhandled') {
+    const messageFromType = CQMessageFromTypeHelper.getMessageFromType({ message_type: req.body.message_type, sub_type: req.body.sub_type });
+    if (messageFromType === MessageFromType.unknown) {
       debugLogger.debug('[请求终止]  暂不支持的消息类型，不做处理');
       res.end();
       return;
     }
-
-    const isGroupMessage = messageFromType === 'group';
-    const isAnonymousMessage = messageFromType === 'anonymous';
-    const isUserMessage = messageFromType === 'user';
     const isAt = CQMessageHelper.isAt(robot, message);
-
     const requestBody = req.body;
-    const userNumber = isAnonymousMessage ? null : req.body.user_id;
     const userRole = req.body.sender.role || 'member';
-    const groupNumber = req.body.group_id;
+    const userNumber = CQMessageFromTypeHelper.isGroupAnonymousMessage(messageFromType) ? req.body.anonymous : req.body.user_id;
+    if (typeof userNumber === 'object' && ('flag' in userNumber)) {
+      delete userNumber.flag;
+    }
+    const groupNumber = req.body.group_id
+    const discussNumber = req.body.discuss_id;
     const robotNumber = robot;
-    const numbers: Numbers = {
-      fromUser: userNumber,
+    // ------------------------------------------------------------------------
+    // ------------------------------------------------------------------------
+    // ------------------------------------------------------------------------
+
+    const requestIdentity: RequestIdentity = {
+      messageFromType,
       fromGroup: groupNumber,
+      fromUser: userNumber,
+      fromDiscuss: discussNumber,
       robot: robotNumber,
     };
-    // ------------------------------------------------------------------------
-    // ------------------------------------------------------------------------
-    // ------------------------------------------------------------------------
 
     const noSessionError = (): never => {
       throw new Error('未设置session参数，无法使用该函数');
     };
     let sessionData: SessionData | null = null;
     if (session) {
-      sessionData = await session.getSession(numbers);
+      sessionData = await session.getSession(requestIdentity);
     }
     // 若找到了sessionData，则必须要提供相关处理数据，否则报错
     if (sessionData) {
@@ -258,35 +263,37 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
         if (sessionData.className !== className) continue;
         // @ts-ignore
         const sessionNames = Object.getOwnPropertyNames(command.__proto__)
-          .filter(item => item.startsWith('session') && item !== 'constructor')
-          .map(item => item.slice(7));
+          .filter(item => {
+            // @ts-ignore
+            return item.startsWith('session') && typeof command.__proto__[item] === 'function'
+          });
         if (sessionNames.includes(sessionData.sessionName)) {
+          const storedHistoryMessage = sessionData.historyMessage;
+          if (sessionData.sessionName in storedHistoryMessage)
+            storedHistoryMessage[sessionData.sessionName].push(message);
+          else storedHistoryMessage[sessionData.sessionName] = [message];
+          if (session) await session.updateSession(requestIdentity, 'historyMessage', storedHistoryMessage);
           const setNext = session
-            ? session.setSession.bind(session, numbers, {
+            ? session.setSession.bind(session, requestIdentity, {
                 className: sessionData.className,
-                historyMessage: {
-                  ...sessionData.historyMessage,
-                  [sessionData.sessionName]: message,
-                },
+                historyMessage: storedHistoryMessage,
               })
             : noSessionError;
-          const setEnd = session ? session.removeSession.bind(session, numbers) : noSessionError;
+          const setEnd = session ? session.removeSession.bind(session, requestIdentity) : noSessionError;
           const sessionHandlerParams: SessionHandlerParams = {
             setNext,
             setEnd,
-            ...numbers,
+            ...requestIdentity,
             message,
             requestBody,
             rawMessage,
             historyMessage: sessionData.historyMessage,
           };
-          const replyData = await command[`session${sessionData.sessionName}`].call(command, sessionHandlerParams);
-          const messageFromType = getMessageFromTypeFromNumbers(numbers);
+          const replyData = await command[sessionData.sessionName].call(command, sessionHandlerParams);
           await handleReplyData(res, replyData, {
-            matchGroupScope: messageFromType === MessageFromType.group || messageFromType === MessageFromType.anonymous,
-            matchUserScope: messageFromType === MessageFromType.user,
             userNumber,
             groupNumber,
+            discussNumber,
             httpPlugin,
           });
           debugLogger.debug(`[消息处理] 使用${className}类的session${sessionData.sessionName}函数处理完毕`);
@@ -294,9 +301,9 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
         }
       }
       res.end();
-      await session!.removeSession(numbers);
+      await session!.removeSession(requestIdentity);
       logger.warn(
-        `[消息处理] 未在${sessionData.className}类中找到与缓存匹配的session${
+        `[消息处理] 未在${sessionData.className}类中找到与缓存匹配的${
           sessionData.sessionName
         }函数，当前会话已重置`
       );
@@ -315,8 +322,8 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
 
         // 判断当前命令和消息源是否匹配
         const matchGroupScope =
-          (scope === Scope.group || scope === Scope.both) && (isGroupMessage || isAnonymousMessage);
-        const matchUserScope = (scope === Scope.user || scope === Scope.both) && isUserMessage;
+          (scope === Scope.group || scope === Scope.both) && (CQMessageFromTypeHelper.isGroupMessage(messageFromType) || CQMessageFromTypeHelper.isDiscussMessage(messageFromType));
+        const matchUserScope = (scope === Scope.user || scope === Scope.both) && CQMessageFromTypeHelper.isUserMessage(messageFromType);
 
         if (matchGroupScope || matchUserScope) {
           if (matchGroupScope) {
@@ -340,11 +347,11 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
             requestBody,
             message,
             rawMessage,
-            ...numbers,
           };
           if (parse) {
             // 若parse函数返回非undefined，表明解析成功，否则继续循环
             parsedData = await parse({
+              ...requestIdentity,
               ...baseInfo,
             });
             if (typeof parsedData === 'undefined') {
@@ -363,13 +370,13 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
           if ((matchUserScope || matchGroupScope) && both) {
             replyData = await both({
               ...baseInfo,
+              ...requestIdentity,
               data: parsedData,
-              messageFromType: getMessageFromTypeFromNumbers(numbers),
               setNext: session
-                ? session.setSession.bind(session, numbers, {
+                ? session.setSession.bind(session, requestIdentity, {
                     className,
                     historyMessage: {
-                      both: message,
+                      both: [message],
                     },
                   })
                 : noSessionError,
@@ -381,14 +388,16 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
             if (matchGroupScope && group) {
               replyData = await group({
                 ...baseInfo,
+                ...requestIdentity,
+                // @ts-ignore
+                messageFromType: requestIdentity.messageFromType,
                 data: parsedData,
-                fromGroup: baseInfo.fromGroup!,
                 isAt,
                 setNext: session
-                  ? session.setSession.bind(session, numbers, {
+                  ? session.setSession.bind(session, requestIdentity, {
                       className,
                       historyMessage: {
-                        group: message,
+                        group: [message],
                       },
                     })
                   : noSessionError,
@@ -402,14 +411,15 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
             if (matchUserScope && user) {
               replyData = await user({
                 ...baseInfo,
+                ...requestIdentity,
+                // @ts-ignore
+                messageFromType: requestIdentity.messageFromType,
                 data: parsedData,
-                fromUser: baseInfo.fromUser!,
-                fromGroup: undefined,
                 setNext: session
-                  ? session.setSession.bind(session, numbers, {
+                  ? session.setSession.bind(session, requestIdentity, {
                       className,
                       historyMessage: {
-                        user: message,
+                        user: [message],
                       },
                     })
                   : noSessionError,
@@ -420,10 +430,9 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
             }
           }
           await handleReplyData(res, replyData, {
-            matchGroupScope,
-            matchUserScope,
             userNumber,
             groupNumber,
+            discussNumber,
             httpPlugin,
           });
           return;
@@ -441,21 +450,24 @@ async function handleReplyData(
   res: Response,
   replyData,
   deps: {
-    matchUserScope: boolean;
-    matchGroupScope: boolean;
     httpPlugin: HttpPlugin;
-    userNumber: number;
-    groupNumber: number;
+    userNumber?: number;
+    groupNumber?: number;
+    discussNumber?: number;
   }
 ): Promise<void> {
   // TODO: TS中自定义类型判断如何做type guard？
   const replyType = getType(replyData);
   if (replyType === 'array') {
     for (const reply of replyData as string[]) {
-      if (deps.matchUserScope) await deps.httpPlugin.sendPrivateMsg(deps.userNumber, reply.toString());
-      if (deps.matchGroupScope) {
-        await deps.httpPlugin.sendGroupMsg(deps.groupNumber, reply.toString());
-      }
+      await deps.httpPlugin.sendMsg(
+        {
+          userNumber: deps.userNumber,
+          groupNumber: deps.groupNumber,
+          discussNumber: deps.discussNumber,
+        },
+        reply.toString()
+      );
     }
     res.end();
     return;

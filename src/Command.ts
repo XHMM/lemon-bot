@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { assertType, getType } from '@xhmm/utils';
-import { Message } from './CQHelper';
+import { Message, CQMessageFromTypeHelper } from './CQHelper';
 import { HttpPlugin } from './HttpPlugin';
-import { MessageFromType } from './utils';
 import { Logger } from './Logger';
+import { HistoryMessage } from './Session';
+
+type OrPromise<T> = T | Promise<T>;
 
 // 命令生效范围
 export enum Scope {
@@ -18,6 +20,7 @@ export enum TriggerType {
   noAt = 'noAt', //noAt表示需要直接输入内容不能艾特
   both = 'both', // both表示两种皆可
 }
+
 // 群组内什么身份可触发
 export enum TriggerScope {
   'all' = 0b111, // 所有人
@@ -26,52 +29,107 @@ export enum TriggerScope {
   'member' = 0b01, // 普通群员
 }
 
-// 常用的三种号码信息
-export interface Numbers {
-  fromUser: number | null; // 为null表明是匿名消息
-  fromGroup: number | undefined; // 私聊时无群组信息，为undefined
-  robot: number; // 机器人qq
+// 【注：消息来源在代码内是区分为qqGroup, discuss, user三种，目前暴露给框架使用者的是user和group函数，其中的qqGroup和group是不同的。group包含了qqGroup和discuss】
+export enum MessageFromType {
+  'userFriend' = 'userFriend',
+  'userGroup' = 'userGroup',
+  'userDiscuss' = 'userDiscuss',
+  'userOther' = 'userOther',
+
+  'qqGroupNormal' = 'qqGroupNormal',
+  'qqGroupAnonymous' = 'qqGroupAnonymous',
+
+  'discussNormal' = 'discussNormal',
+  'discussAnonymous' = 'discussAnonymous',
+
+  'unknown' = 'unknown',
 }
 
-interface BaseParams extends Numbers {
+// 每个上报请求都可用下述字段来唯一标识
+export interface RequestIdentity {
+  robot: number;
+  messageFromType: MessageFromType;
+  fromUser: number | AnonymousUser;
+  fromGroup: number | undefined;
+  fromDiscuss: number | undefined;
+}
+
+export interface AnonymousUser {
+  id: number;
+  name: string;
+  // flag: string; // 这个字段每次发消息都是会变的，会使session key每次不一致
+}
+export interface UserMessageInfo extends RequestIdentity {
+  messageFromType:
+    | MessageFromType.userFriend
+    | MessageFromType.userGroup
+    | MessageFromType.userDiscuss
+    | MessageFromType.userOther;
+  fromUser: number;
+  fromGroup: undefined;
+  fromDiscuss: undefined;
+}
+export interface QQGroupNormalMessageInfo extends RequestIdentity {
+  messageFromType: MessageFromType.qqGroupNormal;
+  fromUser: number;
+  fromGroup: number;
+  fromDiscuss: undefined;
+}
+export interface QQGroupAnonymousMessageInfo extends RequestIdentity {
+  messageFromType: MessageFromType.qqGroupAnonymous;
+  fromUser: AnonymousUser;
+  fromGroup: number;
+  fromDiscuss: undefined;
+}
+export interface DiscussNormalMessageInfo extends RequestIdentity {
+  messageFromType: MessageFromType.discussNormal;
+  fromUser: number;
+  fromGroup: undefined;
+  fromDiscuss: number;
+}
+export interface DiscussAnonymousMessageInfo extends RequestIdentity {
+  messageFromType: MessageFromType.discussAnonymous;
+  fromUser: AnonymousUser;
+  fromGroup: undefined;
+  fromDiscuss: number;
+}
+
+interface BaseParams {
   message: Message[];
   rawMessage: string;
   requestBody: any;
 }
+type SetNextFn = (sessionFunctionName: string, expireSeconds?: number) => Promise<void>; // 设置session name和过期时间
+type SetEndFn = () => Promise<void>; // 删除session
 
 // parse函数
-export interface ParseParams extends BaseParams {}
+export interface ParseParams extends BaseParams, RequestIdentity {}
 export type ParseReturn = any;
-
-type SetNextFn = (sessionName: string, expireSeconds?: number) => Promise<void>; // 设置session name和过期时间
-type SetEndFn = () => Promise<void>; // 删除session
 
 interface HandlerBaseParams extends BaseParams {
   setNext: SetNextFn;
-
 }
 // user函数
-export interface UserHandlerParams<D = any> extends HandlerBaseParams {
-  fromUser: number;
-  fromGroup: undefined;
-  data: D
+export interface UserHandlerParams<D = unknown> extends HandlerBaseParams, UserMessageInfo {
+  data: D;
 }
 // group函数
-export interface GroupHandlerParams<D = any> extends HandlerBaseParams {
-  fromGroup: number;
+interface GroupHandlerBaseParams<D = unknown> extends HandlerBaseParams {
   isAt: boolean;
-  data: D
+  data: D;
 }
+export type GroupHandlerParams<D = unknown> = GroupHandlerBaseParams<D> &
+  (QQGroupAnonymousMessageInfo | QQGroupNormalMessageInfo | DiscussAnonymousMessageInfo | DiscussNormalMessageInfo);
 // both函数
-export interface BothHandlerParams<D = any> extends HandlerBaseParams {
-  messageFromType: MessageFromType;
-  data: D
+export interface BothHandlerParams<D = unknown> extends HandlerBaseParams, RequestIdentity {
+  data: D;
 }
 // session函数
 export interface SessionHandlerParams extends HandlerBaseParams {
   setEnd: SetEndFn;
-  historyMessage: Record<string, Message[]>; // { user/group/both: [..],  sessionName1: [..],  sessionName2: [..]}
+  historyMessage: HistoryMessage;
 }
+// return
 export type HandlerReturn =
   | {
       atSender: boolean;
@@ -85,11 +143,19 @@ export type GroupHandlerReturn = HandlerReturn;
 export type BothHandlerReturn = HandlerReturn;
 export type SessionHandlerReturn = HandlerReturn;
 
-
-type OrPromise<T> = T | Promise<T>;
-
 export abstract class Command<C = unknown, D = unknown> {
-  static blackList = ['scope', 'directives', 'context', 'httpPlugin', 'includeGroup', 'excludeGroup', 'includeUser', 'excludeUser', 'triggerType', 'triggerScope']
+  static blackList = [
+    'scope',
+    'directives',
+    'context',
+    'httpPlugin',
+    'includeGroup',
+    'excludeGroup',
+    'includeUser',
+    'excludeUser',
+    'triggerType',
+    'triggerScope',
+  ];
   // 下述属性是在node启动后被注入给了实例对象，之后不会再改变
   scope: Scope; // // [在该类构造函数内被注入] 使用该属性来判断该命令的作用域
   directives: string[]; // [在create阶段使用该类Command.normalizeDirectives函数被注入]
@@ -149,6 +215,9 @@ export abstract class Command<C = unknown, D = unknown> {
   both?(params: BothHandlerParams<D>): OrPromise<HandlerReturn>;
 }
 
+// ------------------------------------------------------------------------
+// -------------------------------- 修饰器 ---------------------------------
+// ------------------------------------------------------------------------
 // 用于user和group。指定该选项时，只有这里面的qq/qq群可触发该命令
 // TODO: 后期改为可接受(异步)函数
 export function include(include: number[]) {
@@ -162,7 +231,6 @@ export function include(include: number[]) {
     } else Logger.warn('include decorator only works with user or group function');
   };
 }
-
 // 用于user和group。指定该选项时，这里面的qq/qq群不可触发该命令。
 export function exclude(exclude: number[]) {
   return function(proto, name, descriptor) {
@@ -175,7 +243,6 @@ export function exclude(exclude: number[]) {
     } else Logger.warn('exclude decorator only works with user or group function');
   };
 }
-
 // 用于group和both。设置群组内命令触发方式
 export function trigger(type: TriggerType) {
   return function(proto, name, descriptor) {
@@ -184,7 +251,6 @@ export function trigger(type: TriggerType) {
     } else proto.triggerType = type;
   };
 }
-
 // 用于group和both。设置群组内什么身份可触发命令
 export function scope(role: TriggerScope) {
   return function(proto, name, descriptor) {
@@ -193,3 +259,88 @@ export function scope(role: TriggerScope) {
     } else proto.triggerScope = role;
   };
 }
+// ------------------------------------------------------------------------
+// ------------------------------------------------------------------------
+// ------------------------------------------------------------------------
+
+// ------------------------------------------------------------------------
+// ------------------------------ type guard-------------------------------
+// ------------------------------------------------------------------------
+type HandlerParams = UserHandlerParams | GroupHandlerParams | BothHandlerParams;
+// 用户消息
+export function fromUserMessage(p: HandlerParams): p is UserHandlerParams {
+  return CQMessageFromTypeHelper.isUserMessage(p.messageFromType);
+}
+
+// q群或讨论组所有消息
+export function fromGroupMessage(
+  p: HandlerParams
+): p is GroupHandlerBaseParams &
+  (DiscussNormalMessageInfo | QQGroupNormalMessageInfo | DiscussAnonymousMessageInfo | QQGroupAnonymousMessageInfo) {
+  return CQMessageFromTypeHelper.isGroupMessage(p.messageFromType);
+}
+// q群或讨论组匿名消息
+export function fromGroupAnonymousMessage(
+  p: HandlerParams
+): p is GroupHandlerBaseParams & (DiscussAnonymousMessageInfo | QQGroupAnonymousMessageInfo) {
+  return CQMessageFromTypeHelper.isGroupAnonymousMessage(p.messageFromType);
+}
+// q群或讨论组普通消息
+export function fromGroupNormalMessage(
+  p: HandlerParams
+): p is GroupHandlerBaseParams & (DiscussNormalMessageInfo | QQGroupNormalMessageInfo) {
+  return CQMessageFromTypeHelper.isGroupNormalMessage(p.messageFromType);
+}
+
+// q群所有消息
+export function fromQQGroupMessage(
+  p: HandlerParams
+): p is GroupHandlerBaseParams & (QQGroupNormalMessageInfo | QQGroupAnonymousMessageInfo) {
+  return CQMessageFromTypeHelper.isQQGroupMessage(p.messageFromType);
+}
+// q群普通消息
+export function fromQQGroupNormalMessage(p: HandlerParams): p is GroupHandlerBaseParams & QQGroupNormalMessageInfo {
+  return CQMessageFromTypeHelper.isQQGroupNormalMessage(p.messageFromType);
+}
+// q群匿名消息
+export function fromQQGroupAnonymousMessage(
+  p: HandlerParams
+): p is GroupHandlerBaseParams & QQGroupAnonymousMessageInfo {
+  return CQMessageFromTypeHelper.isQQGroupAnonymousMessage(p.messageFromType);
+}
+
+// 讨论组所有消息
+export function fromDiscussMessage(
+  p: HandlerParams
+): p is GroupHandlerBaseParams & (DiscussNormalMessageInfo | DiscussAnonymousMessageInfo) {
+  return CQMessageFromTypeHelper.isDiscussMessage(p.messageFromType);
+}
+// 讨论组普通消息
+export function fromDiscussNormalMessage(p: HandlerParams): p is GroupHandlerBaseParams & DiscussNormalMessageInfo {
+  return CQMessageFromTypeHelper.isDiscussNormalMessage(p.messageFromType);
+}
+// 讨论组匿名消息
+export function fromDiscussAnonymousMessage(
+  p: HandlerParams
+): p is GroupHandlerBaseParams & DiscussAnonymousMessageInfo {
+  return CQMessageFromTypeHelper.isDiscussAnonymousMessage(p.messageFromType);
+}
+
+function a(p: HandlerParams): void {
+  if (fromQQGroupNormalMessage(p) || fromDiscussNormalMessage(p)) {
+    const b = p.fromUser;
+    const c = p.fromGroup;
+    const d = p.fromDiscuss;
+  }
+  if (fromGroupNormalMessage(p)) {
+    const b = p.fromUser;
+    const c = p.fromGroup;
+    const d = p.fromDiscuss;
+  }
+  const b = p.fromUser;
+  const c = p.fromGroup;
+  const d = p.fromDiscuss;
+}
+// ------------------------------------------------------------------------
+// ------------------------------------------------------------------------
+// ------------------------------------------------------------------------

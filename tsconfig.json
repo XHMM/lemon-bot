@@ -11,7 +11,8 @@
     "strictBindCallApply": true,
     "declaration": true,
     "removeComments": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "sourceMap": true
   },
   "include": ["src"],
   "exclude": ["node_modules"]
