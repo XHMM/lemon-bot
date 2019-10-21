@@ -90,14 +90,13 @@ export class HttpPlugin {
   }
 
   async sendMsg(
-    numbers: { userNumber?: number; groupNumber?: number; discussNumber?: number },
+    numbers: { userNumber?: number; groupNumber?: number; },
     message: string,
     escape = false
   ): Promise<SendMsgResponse> {
     return await this.getResponseData(APIList.send_msg, {
       user_id: numbers.userNumber,
       group_id: numbers.groupNumber,
-      discuss_id: numbers.discussNumber,
       message,
       auto_escape: escape,
     });

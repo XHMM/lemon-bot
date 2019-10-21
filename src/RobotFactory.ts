@@ -230,12 +230,11 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
     const isAt = CQMessageHelper.isAt(robot, message);
     const requestBody = req.body;
     const userRole = req.body.sender.role || 'member';
-    const userNumber = CQMessageFromTypeHelper.isGroupAnonymousMessage(messageFromType) ? req.body.anonymous : req.body.user_id;
+    const userNumber = CQMessageFromTypeHelper.isQQGroupAnonymousMessage(messageFromType) ? req.body.anonymous : req.body.user_id;
     if (typeof userNumber === 'object' && ('flag' in userNumber)) {
       delete userNumber.flag;
     }
     const groupNumber = req.body.group_id
-    const discussNumber = req.body.discuss_id;
     const robotNumber = robot;
     // ------------------------------------------------------------------------
     // ------------------------------------------------------------------------
@@ -245,7 +244,6 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
       messageFromType,
       fromGroup: groupNumber,
       fromUser: userNumber,
-      fromDiscuss: discussNumber,
       robot: robotNumber,
     };
 
@@ -293,7 +291,6 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
           await handleReplyData(res, replyData, {
             userNumber,
             groupNumber,
-            discussNumber,
             httpPlugin,
           });
           debugLogger.debug(`[消息处理] 使用${className}类的session${sessionData.sessionName}函数处理完毕`);
@@ -322,7 +319,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
 
         // 判断当前命令和消息源是否匹配
         const matchGroupScope =
-          (scope === Scope.group || scope === Scope.both) && (CQMessageFromTypeHelper.isGroupMessage(messageFromType) || CQMessageFromTypeHelper.isDiscussMessage(messageFromType));
+          (scope === Scope.group || scope === Scope.both) && CQMessageFromTypeHelper.isQQGroupMessage(messageFromType) ;
         const matchUserScope = (scope === Scope.user || scope === Scope.both) && CQMessageFromTypeHelper.isUserMessage(messageFromType);
 
         if (matchGroupScope || matchUserScope) {
@@ -432,7 +429,6 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
           await handleReplyData(res, replyData, {
             userNumber,
             groupNumber,
-            discussNumber,
             httpPlugin,
           });
           return;
@@ -453,7 +449,6 @@ async function handleReplyData(
     httpPlugin: HttpPlugin;
     userNumber?: number;
     groupNumber?: number;
-    discussNumber?: number;
   }
 ): Promise<void> {
   // TODO: TS中自定义类型判断如何做type guard？
@@ -464,7 +459,6 @@ async function handleReplyData(
         {
           userNumber: deps.userNumber,
           groupNumber: deps.groupNumber,
-          discussNumber: deps.discussNumber,
         },
         reply.toString()
       );

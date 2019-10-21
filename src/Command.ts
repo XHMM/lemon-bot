@@ -29,18 +29,13 @@ export enum TriggerScope {
   'member' = 0b01, // 普通群员
 }
 
-// 【注：消息来源在代码内是区分为qqGroup, discuss, user三种，目前暴露给框架使用者的是user和group函数，其中的qqGroup和group是不同的。group包含了qqGroup和discuss】
 export enum MessageFromType {
   'userFriend' = 'userFriend',
   'userGroup' = 'userGroup',
-  'userDiscuss' = 'userDiscuss',
   'userOther' = 'userOther',
 
   'qqGroupNormal' = 'qqGroupNormal',
   'qqGroupAnonymous' = 'qqGroupAnonymous',
-
-  'discussNormal' = 'discussNormal',
-  'discussAnonymous' = 'discussAnonymous',
 
   'unknown' = 'unknown',
 }
@@ -51,7 +46,6 @@ export interface RequestIdentity {
   messageFromType: MessageFromType;
   fromUser: number | AnonymousUser;
   fromGroup: number | undefined;
-  fromDiscuss: number | undefined;
 }
 
 export interface AnonymousUser {
@@ -63,35 +57,19 @@ export interface UserMessageInfo extends RequestIdentity {
   messageFromType:
     | MessageFromType.userFriend
     | MessageFromType.userGroup
-    | MessageFromType.userDiscuss
     | MessageFromType.userOther;
   fromUser: number;
   fromGroup: undefined;
-  fromDiscuss: undefined;
 }
 export interface QQGroupNormalMessageInfo extends RequestIdentity {
   messageFromType: MessageFromType.qqGroupNormal;
   fromUser: number;
   fromGroup: number;
-  fromDiscuss: undefined;
 }
 export interface QQGroupAnonymousMessageInfo extends RequestIdentity {
   messageFromType: MessageFromType.qqGroupAnonymous;
   fromUser: AnonymousUser;
   fromGroup: number;
-  fromDiscuss: undefined;
-}
-export interface DiscussNormalMessageInfo extends RequestIdentity {
-  messageFromType: MessageFromType.discussNormal;
-  fromUser: number;
-  fromGroup: undefined;
-  fromDiscuss: number;
-}
-export interface DiscussAnonymousMessageInfo extends RequestIdentity {
-  messageFromType: MessageFromType.discussAnonymous;
-  fromUser: AnonymousUser;
-  fromGroup: undefined;
-  fromDiscuss: number;
 }
 
 interface BaseParams {
@@ -119,7 +97,7 @@ interface GroupHandlerBaseParams<D = unknown> extends HandlerBaseParams {
   data: D;
 }
 export type GroupHandlerParams<D = unknown> = GroupHandlerBaseParams<D> &
-  (QQGroupAnonymousMessageInfo | QQGroupNormalMessageInfo | DiscussAnonymousMessageInfo | DiscussNormalMessageInfo);
+  (QQGroupAnonymousMessageInfo | QQGroupNormalMessageInfo);
 // both函数
 export interface BothHandlerParams<D = unknown> extends HandlerBaseParams, RequestIdentity {
   data: D;
@@ -271,27 +249,6 @@ type HandlerParams = UserHandlerParams | GroupHandlerParams | BothHandlerParams;
 export function fromUserMessage(p: HandlerParams): p is UserHandlerParams {
   return CQMessageFromTypeHelper.isUserMessage(p.messageFromType);
 }
-
-// q群或讨论组所有消息
-export function fromGroupMessage(
-  p: HandlerParams
-): p is GroupHandlerBaseParams &
-  (DiscussNormalMessageInfo | QQGroupNormalMessageInfo | DiscussAnonymousMessageInfo | QQGroupAnonymousMessageInfo) {
-  return CQMessageFromTypeHelper.isGroupMessage(p.messageFromType);
-}
-// q群或讨论组匿名消息
-export function fromGroupAnonymousMessage(
-  p: HandlerParams
-): p is GroupHandlerBaseParams & (DiscussAnonymousMessageInfo | QQGroupAnonymousMessageInfo) {
-  return CQMessageFromTypeHelper.isGroupAnonymousMessage(p.messageFromType);
-}
-// q群或讨论组普通消息
-export function fromGroupNormalMessage(
-  p: HandlerParams
-): p is GroupHandlerBaseParams & (DiscussNormalMessageInfo | QQGroupNormalMessageInfo) {
-  return CQMessageFromTypeHelper.isGroupNormalMessage(p.messageFromType);
-}
-
 // q群所有消息
 export function fromQQGroupMessage(
   p: HandlerParams
@@ -307,39 +264,6 @@ export function fromQQGroupAnonymousMessage(
   p: HandlerParams
 ): p is GroupHandlerBaseParams & QQGroupAnonymousMessageInfo {
   return CQMessageFromTypeHelper.isQQGroupAnonymousMessage(p.messageFromType);
-}
-
-// 讨论组所有消息
-export function fromDiscussMessage(
-  p: HandlerParams
-): p is GroupHandlerBaseParams & (DiscussNormalMessageInfo | DiscussAnonymousMessageInfo) {
-  return CQMessageFromTypeHelper.isDiscussMessage(p.messageFromType);
-}
-// 讨论组普通消息
-export function fromDiscussNormalMessage(p: HandlerParams): p is GroupHandlerBaseParams & DiscussNormalMessageInfo {
-  return CQMessageFromTypeHelper.isDiscussNormalMessage(p.messageFromType);
-}
-// 讨论组匿名消息
-export function fromDiscussAnonymousMessage(
-  p: HandlerParams
-): p is GroupHandlerBaseParams & DiscussAnonymousMessageInfo {
-  return CQMessageFromTypeHelper.isDiscussAnonymousMessage(p.messageFromType);
-}
-
-function a(p: HandlerParams): void {
-  if (fromQQGroupNormalMessage(p) || fromDiscussNormalMessage(p)) {
-    const b = p.fromUser;
-    const c = p.fromGroup;
-    const d = p.fromDiscuss;
-  }
-  if (fromGroupNormalMessage(p)) {
-    const b = p.fromUser;
-    const c = p.fromGroup;
-    const d = p.fromDiscuss;
-  }
-  const b = p.fromUser;
-  const c = p.fromGroup;
-  const d = p.fromDiscuss;
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
