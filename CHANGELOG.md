@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.4.1 (2019年10月20日)
+### Features:
+- 现支持所有消息类型的处理(不同情况下的私聊、群内匿名和非匿名、讨论组)。并提供了完整的type guard来帮助ts代码的正确类型提示
+### Breaking changes:
+- `historyMessage`字段的key值不再省略'session'单词，value值现是一个二维数组，里面保存了当前session函数接收的所有消息
+
+
 ## 0.4.0 (2019年10月20日)
 ### Breaking changes:
 - `parse`函数的返回值不再是赋给`this.data`，而是需要在`user`/`group`/`both`函数参数中使用`data`属性来获取。  

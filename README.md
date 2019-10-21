@@ -13,7 +13,9 @@
 - and more ...
 
   
+
 ## 前言
+
 该项目仍处于早期开发版，故版本变动较为频繁，但会尽可能保证基本开发方式保持不变，具体变动见 [Changelog](https://github.com/XHMM/lemon-bot/blob/master/CHANGELOG.md)
 
 ## 准备
@@ -129,7 +131,7 @@ robot.start(); // 启动
 | commands   | Command[]  | 需要注册的命令                                         |          |
 | session    | Session    | 传入该参数运行使用session函数                          | optional |
 | secret     | string     | 须和HTTP插件配置文件值保持一致，用于对上报数据进行验证 | optional |
-| context    | any        | 该属性会作为Command继承类的成员属性，默认值为null            | optional |
+| context    | any        | 该属性会作为Command继承类的成员属性，默认值为null      | optional |
 
 `CreateReturn`：该函数的返回值是一个对象，包含如下属性
 
@@ -237,7 +239,7 @@ class MyCommand extends Command<C> {
 | --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------- |
 | data            | any                                                          | 该值是`parse`函数的返回值                                    | user,group,both         |
 | message         | Message[]                                                    | 二维数组形式表示的用户发来的消息                             | all                     |
-| rawMessage      | string                                                       | 字符串形式表示的用户发来的消息 | all                     |
+| rawMessage      | string                                                       | 字符串形式表示的用户发来的消息                               | all                     |
 | requestBody     | any                                                          | 原始的http请求body数据，具体内容可查看HTTP插件文档。         | all                     |
 | fromUser        | number\|null                                                 | 发送消息者的QQ，为null时表明是群内匿名消息                   | all                     |
 | fromGroup       | number\|undefined                                            | 发送消息者所在的Q群，使用`user`函数时该值为undefined         | all                     |
@@ -245,7 +247,7 @@ class MyCommand extends Command<C> {
 | isAt            | boolean                                                      | 是否艾特了机器人                                             | group                   |
 | messageFromType | MessageFromType                                              | 消息来自方：group值群聊, anonymous指群内匿名聊, user指独聊   | both                    |
 | setEnd          | () => Promise<void>                                          | 异步函数，设置会话上下文结束                                 | session                 |
-| historyMessage | Record<string, Message[]>                                     | 一个对象，保存了历史会话消息，其中key的值为`group`或`user`和`setNext`指定的名称 | session                 |
+| historyMessage  | Record<string, Array<Message[]>>                             | 一个对象，保存了历史会话消息，其中key的值为`group`或`user`和`setNext`指定的名称(含‘session’单词前缀) | session                 |
 | setNext         | (sessionName: string, expireSeconds?: number) => Promise<void> | 异步函数，设置下一个需要执行的session函数                    | user,group,both,session |
 
 #### 函数返回值：
@@ -413,13 +415,13 @@ session函数指的是以"session"单词开头的写在继承类里的函数，�
 
 #### 如何使用session函数？
 
-在`user`或`group`函数的参数中有个`setNext`属性。
+在`user`或`group`函数的参数中有个`setNext`属性，为异步函数。
 
-在session函数的参数中有`setNext`和`setEnd`两个属性。
+在session函数的参数中有`setNext`和`setEnd`两个属性，也都是异步函数。
 
 - `setNext(name: string, expireSeconds?: number): Promise<void>` 
 
-  参数一`name`的值为其他session函数的函数名或是省略"session"单词后的部分。
+  参数一`name`的值为其他session函数的函数名或是省略"session"单词后的部分(**警告：** 该`name`是大小写敏感的)。
 
   参数二`expireSeconds`选填，表示会话过期时间，默认为5分钟。
 
@@ -513,11 +515,13 @@ robot.start();
 Example：
 
 ```js
-if (process.env.NODE_ENV === 'development')
-	Logger.enableDebug();
+if (process.env.NODE_ENV === 'development') 
+    Logger.enableDebug();
 else
     Logger.disableDebug();
 ```
+
+
 
 
 
@@ -566,8 +570,8 @@ else
    })
    ```
 
-3. 如何实现群组session:
+### 3. 如何实现群组session？
 
 比如我想实现这样一个命令:我艾特机器人回复"收集反馈"后，接下来群员的发言内容会全部被采集，直到我艾特机器人发送"收集结束"。
 
-答:目前的session函数的触发条件必须是"是相同用户并且在相同群组内如果是群消息"，暂不原生支持触发条件是"仅在同一群组"的情况。目前开发者可以通过使用redis并在默认消息处理命令里进行判断是否处于"消息反馈"状态下并进行处理。
+答: 目前的session函数的触发条件必须是"是相同用户并且在相同群组内如果是群消息"，暂不原生支持触发条件是"仅在同一群组"的情况。目前开发者可以通过使用redis并在默认消息处理命令里进行判断是否处于"消息反馈"状态下并进行处理。
