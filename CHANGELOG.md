@@ -1,8 +1,8 @@
 # Change Log
 
-## 0.4.2 (2019年10月22日)
+## 0.4.3 (2019年10月22日)
 ### Fix bugs:
-- dependency bug fix
+- dependency @xhmm/util bug fix
 
 ## 0.4.1 (2019年10月20日)
 ### Features:
