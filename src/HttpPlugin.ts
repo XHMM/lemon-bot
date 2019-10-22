@@ -132,11 +132,12 @@ export class HttpPlugin {
         // https://cqhttp.cc/docs/4.11/#/API?id=%E5%93%8D%E5%BA%94%E8%AF%B4%E6%98%8E
         const { status, retcode, data } = await response.json();
         if (status === 'ok' && retcode === 0) return data;
-        let reason = '得去看coolq应用的运行日志(不是http插件哦)';
+        let reason = `请前往 https://cqhttp.cc/docs/#/API?id=响应说明 或 酷Q运行日志(不是http插件) 根据状态码${retcode}查询原因`;
         if (status === 'failed') {
           if (retcode === -23) reason = `找不到与目标QQ的关系，消息无法发送`;
           if (retcode === -34) reason = '机器人被禁言了';
           if (retcode === -38) reason = '接收者帐号错误或帐号不在该群组内';
+          if (retcode === 100) reason = '参数缺失或参数无效(比如QQ号小于0、message字段无内容等)';
         }
         return Promise.reject(
           new HttpPluginError(api, `response data status is ${status}, reason is ${reason}`, retcode)
