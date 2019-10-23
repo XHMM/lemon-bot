@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es6", // cannot be es5 because I have Error extends related code
     "module": "commonjs",
     "moduleResolution": "node",
     "alwaysStrict": true,

@@ -6,9 +6,40 @@ enum APIList {
   'send_private_msg' = 'send_private_msg',
   'send_group_msg' = 'send_group_msg',
   'send_msg' = 'send_msg',
+  // 'send_discuss_msg' = 'send_discuss_msg',
+  'delete_msg' = 'delete_msg',
+  'send_like' = 'send_like',
+  'set_group_kick' = 'set_group_kick',
+  'set_group_ban' = 'set_group_ban',
+  'set_group_anonymous_ban' = 'set_group_anonymous_ban',
+  'set_group_whole_ban' = 'set_group_whole_ban',
+  'set_group_admin' = 'set_group_admin',
+  'set_group_anonymous' = 'set_group_anonymous',
+  'set_group_card' = 'set_group_card',
+  'set_group_leave' = 'set_group_leave',
+  'set_group_special_title' = 'set_group_special_title',
+  // 'set_discuss_leave' = 'set_discuss_leave',
+  'set_friend_add_request' = 'set_friend_add_request',
+  'set_group_add_request' = 'set_group_add_request',
+  'get_login_info' = 'get_login_info',
+  'get_stranger_info' = 'get_stranger_info',
+  'get_friend_list' = 'get_friend_list',
   'get_group_list' = 'get_group_list',
+  'get_group_info' = 'get_group_info',
+  'get_group_member_info' = 'get_group_member_info',
   'get_group_member_list' = 'get_group_member_list',
+  'get_cookies' = 'get_cookies',
+  'get_csrf_token' = 'get_csrf_token',
+  'get_credentials' = 'get_credentials',
+  'get_record' = 'get_record',
   'get_image' = 'get_image',
+  'can_send_image' = 'can_send_image',
+  'can_send_record' = 'can_send_record',
+  'get_status' = 'get_status',
+  'get_version_info' = 'get_version_info',
+  'set_restart_plugin' = 'set_restart_plugin',
+  'clean_data_dir' = 'clean_data_dir',
+  'clean_plugin_log' = 'clean_plugin_log'
 }
 interface SendPrivateMsgResponse {
   message_id: number;
@@ -45,13 +76,13 @@ interface GetImageResponse {
 }
 
 class HttpPluginError extends Error {
-  private apiName: APIList;
+  private APIName: APIList;
   private retcode?: number;
-  constructor(apiName: APIList, message: string, retcode?: number) {
-    if (retcode) super(`HTTP Plugin API "${apiName}" called with error message "${message}", retcode is ${retcode}`);
-    else super(`HTTP Plugin API "${apiName}" called with error message "${message}"`);
+  constructor(APIName: APIList, message: string, retcode?: number) {
+    if (retcode) super(`HTTP Plugin API "${APIName}" called with error message "${message}", retcode is ${retcode}`);
+    else super(`HTTP Plugin API "${APIName}" called with error message "${message}"`);
     this.name = this.constructor.name;
-    this.apiName = apiName;
+    this.APIName = APIName;
     if (retcode) this.retcode = retcode;
     Error.captureStackTrace(this, this.constructor);
   }
@@ -89,14 +120,10 @@ export class HttpPlugin {
     });
   }
 
-  async sendMsg(
-    numbers: { userNumber?: number; groupNumber?: number; },
-    message: string,
-    escape = false
-  ): Promise<SendMsgResponse> {
+  async sendMsg(numbers: { user?: number; group?: number }, message: string, escape = false): Promise<SendMsgResponse> {
     return await this.getResponseData(APIList.send_msg, {
-      user_id: numbers.userNumber,
-      group_id: numbers.groupNumber,
+      user_id: numbers.user,
+      group_id: numbers.group,
       message,
       auto_escape: escape,
     });
