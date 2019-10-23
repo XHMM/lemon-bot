@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.4.4 (2019年10月23日)
+### Breaking changes:
+- `HttpPlugin`类的`sendMsg`接口参数名修改，移除了`Number`冗余单词
+- `HttpPluginError`类的实例属性`apiName`改为`APIName`
+- `AnonymousUser`重新加回了`flag`属性以便其他api调用时使用
+
 ## 0.4.3 (2019年10月22日)
 ### Fix bugs:
 - dependency @xhmm/util bug fix
