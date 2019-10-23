@@ -1,6 +1,6 @@
 import nodeFetch from 'node-fetch';
 import { Signale } from 'signale';
-import { objectToQS, conditionalObjectMerge } from '@xhmm/utils';
+import { conditionalObjectMerge } from '@xhmm/utils';
 
 enum APIList {
   'send_private_msg' = 'send_private_msg',
@@ -118,18 +118,21 @@ export class HttpPlugin {
     });
   }
 
-  private async getResponseData<D>(api: APIList, queryObject?: Record<string, any>): Promise<D> {
+  private async getResponseData<D>(api: APIList, data?: Record<string, any>): Promise<D> {
     try {
-      const response = await nodeFetch(`${this.endpoint}/${api}?${objectToQS(queryObject)}`, {
-        headers: conditionalObjectMerge({}, [
+      const response = await nodeFetch(`${this.endpoint}/${api}`, {
+        headers: conditionalObjectMerge({
+          'Content-Type': 'application/json'
+        }, [
           this.config.accessToken !== undefined,
           {
             Authorization: `Bearer ${this.config.accessToken}`,
           },
         ]),
+        body: JSON.stringify(data)
       });
       if (response.status === 200) {
-        // https://cqhttp.cc/docs/4.11/#/API?id=%E5%93%8D%E5%BA%94%E8%AF%B4%E6%98%8E
+        // https://cqhttp.cc/docs/#/API?id=%E5%93%8D%E5%BA%94%E8%AF%B4%E6%98%8E
         const { status, retcode, data } = await response.json();
         if (status === 'ok' && retcode === 0) return data;
         let reason = `请前往 https://cqhttp.cc/docs/#/API?id=响应说明 或 酷Q运行日志(不是http插件) 根据状态码${retcode}查询原因`;
