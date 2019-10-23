@@ -451,14 +451,13 @@ async function handleReplyData(
     groupNumber?: number;
   }
 ): Promise<void> {
-  // TODO: TS中自定义类型判断如何做type guard？
   const replyType = getType(replyData);
   if (replyType === 'array') {
     for (const reply of replyData as string[]) {
       await deps.httpPlugin.sendMsg(
         {
-          userNumber: deps.userNumber,
-          groupNumber: deps.groupNumber,
+          user: deps.userNumber,
+          group: deps.groupNumber,
         },
         reply.toString()
       );
