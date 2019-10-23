@@ -21,7 +21,9 @@ export class Session {
   }
 
   private static genSessionKey(params: RequestIdentity): SessionKey {
-    return JSON.stringify(params);
+    const clone = JSON.parse(JSON.stringify(params));
+    if (typeof clone.fromUser ==='object' && clone.fromUser.flag) delete clone.fromUser.flag;
+    return JSON.stringify(clone);
   }
 
   async getSession(params: RequestIdentity): Promise<SessionData | null> {

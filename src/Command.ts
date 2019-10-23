@@ -51,7 +51,7 @@ export interface RequestIdentity {
 export interface AnonymousUser {
   id: number;
   name: string;
-  // flag: string; // 这个字段每次发消息都是会变的，会使session key每次不一致
+  flag: string; // 这个字段每次发消息都是会变的，会使session key每次不一致，故在genSessionKey中要判断处理
 }
 export interface UserMessageInfo extends RequestIdentity {
   messageFromType:
