@@ -116,6 +116,8 @@ robot.start(); // 启动
 
 ## API文档
 
+注：下述的类型定义以及ts enum等含义都可在源码内直接查看以帮助更好的理解。
+
 ### Class RobotFactory
 
 该类用于机器人的创建。
@@ -216,15 +218,15 @@ class MyCommand extends Command<C> {
 
 ##### user函数
 
-提供该函数表示当前命令支持用户与机器人直接对话时的场景。
+提供该函数表示当前命令支持处理用户与机器人直接对话时的场景。
 
 ##### group函数
 
-提供该函数表示当前命令支持处理群组聊天的消息内容。
+提供该函数表示当前命令支持处理群组聊天消息。**提醒** ：群组消息包括了 匿名 和 非匿名 两种情况，故该函数参数的`fromUser`字段可能为QQ号，也可能为一个对象描述了匿名用户信息。可使用函数参数中的`messageFromType`判断。
 
 ##### both函数
 
-当你的命令处理逻辑针对用户和群组比较相似时，同时提供`user`和`group`函数会略微繁琐，则可使用该函数来处理。**提醒：**若提供了该函数，则`use`和`group`函数会无效。
+当你的命令处理逻辑针对用户和群组比较相似时，同时提供`user`和`group`函数会略微繁琐，则可直接提供函数来处理。**提醒：**若提供了该函数，则`use`和`group`函数会无效。此文你需要自行判断消息源是用户消息、群组非匿名消息还是群组匿名消息，可使用函数参数的`messageFromType`字段来判断。
 
 ##### session函数
 
@@ -242,11 +244,11 @@ class MyCommand extends Command<C> {
 | message         | Message[]                                                    | 二维数组形式表示的用户发来的消息                             | all                     |
 | rawMessage      | string                                                       | 字符串形式表示的用户发来的消息                               | all                     |
 | requestBody     | any                                                          | 原始的http请求body数据，具体内容可查看HTTP插件文档。         | all                     |
-| fromUser        | number\|null                                                 | 发送消息者的QQ，为null时表明是群内匿名消息                   | all                     |
+| fromUser        | number\| AnonymousUser                                       | 发送消息者的QQ，为非数字时代表是匿名用户                     | all                     |
 | fromGroup       | number\|undefined                                            | 发送消息者所在的Q群，使用`user`函数时该值为undefined         | all                     |
 | robot           | number                                                       | 消息处理机器人                                               | all                     |
 | isAt            | boolean                                                      | 是否艾特了机器人                                             | group                   |
-| messageFromType | MessageFromType                                              | 消息来自方：group值群聊, anonymous指群内匿名聊, user指独聊   | both                    |
+| messageFromType | enum MessageFromType                                         | 消息来自方：group指群聊, anonymous指群内匿名聊, user指独聊   | user,group,both         |
 | setEnd          | () => Promise<void>                                          | 异步函数，设置会话上下文结束                                 | session                 |
 | historyMessage  | Record<string, Array<Message[]>>                             | 一个对象，保存了历史会话消息，其中key的值为`group`或`user`和`setNext`指定的名称(含‘session’单词前缀) | session                 |
 | setNext         | (sessionName: string, expireSeconds?: number) => Promise<void> | 异步函数，设置下一个需要执行的session函数                    | user,group,both,session |
@@ -355,8 +357,6 @@ group() {}
 
 ### Class HttpPlugin
 
-- [ ] **TODO: 完善API接口**
-
 该类用于主动调用[HTTP插件提供的API](https://cqhttp.cc/docs/#/API?id=api-列表)。目前该框架只默认处理了消息发送场景，在业务编写中若需其他接口则可使用该类进行调用。
 
 #### constructor(endpoint: string, config?: PluginConfig)
@@ -372,13 +372,15 @@ PluginConfig：一个对象，包含如下属性
 | ----------- | ------ | ---------------------------------------------------------- | -------- |
 | accessToken | string | 须和HTTP插件配置文件值保持一致。在调用API时会验证该token。 | optional |
 
-该类提供的实例方法名称是[HTTP插件文档](https://cqhttp.cc/docs/#/API?id=api-列表)提供API的驼峰式命名，方法的返回值是resolve值为json对象的promise，具体值等同于HTTP插件文档所列。
+该类提供的实例方法名称是[HTTP插件文档](https://cqhttp.cc/docs/#/API?id=api-列表)提供API的驼峰式命名，方法的参数参考下述文档，方法的返回值一个promise，其resolve值等同于HTTP插件文档的json对象。
 
 目前提供了如下接口的实现：
 
 ##### sendPrivateMsg(personQQ: number, message: string, escape?: boolean)
 
 ##### sendGroupMsg(groupQQ: number, message: string, escape?: boolean)
+
+##### sendMsg(numbers: { user?: number;  group?: number; }, message: string, escape?: boolean)
 
 ##### getGroupList()
 
@@ -526,6 +528,8 @@ else
 
 
 
+
+
 ## 安全指南
 
 1. 尽可能避免HTTP插件的上报地址(即node服务器地址)可被外网访问，这会导致收到恶意请求。
@@ -576,3 +580,14 @@ else
 比如我想实现这样一个命令:我艾特机器人回复"收集反馈"后，接下来群员的发言内容会全部被采集，直到我艾特机器人发送"收集结束"。
 
 答: 目前的session函数的触发条件必须是"是相同用户并且在相同群组内如果是群消息"，暂不原生支持触发条件是"仅在同一群组"的情况。目前开发者可以通过使用redis并在默认消息处理命令里进行判断是否处于"消息反馈"状态下并进行处理。
+
+
+
+## TODO
+
+- [ ] 完善API接口实现
+- [ ] 添加非消息事件上报的处理
+- [ ] 编写测试😫
+
+
+
