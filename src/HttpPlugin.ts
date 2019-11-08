@@ -79,8 +79,8 @@ class HttpPluginError extends Error {
   private APIName: APIList;
   private retcode?: number;
   constructor(APIName: APIList, message: string, retcode?: number) {
-    if (retcode) super(`HTTP Plugin API "${APIName}" called with error message "${message}", retcode is ${retcode}`);
-    else super(`HTTP Plugin API "${APIName}" called with error message "${message}"`);
+    if (retcode) super(`${APIName} failed, ${message}(${retcode})`);
+    else super(`${APIName} failed, ${message}`);
     this.name = this.constructor.name;
     this.APIName = APIName;
     if (retcode) this.retcode = retcode;
@@ -148,6 +148,7 @@ export class HttpPlugin {
   private async getResponseData<D>(api: APIList, data?: Record<string, any>): Promise<D> {
     try {
       const response = await nodeFetch(`${this.endpoint}/${api}`, {
+        method: 'POST',
         headers: conditionalObjectMerge({
           'Content-Type': 'application/json'
         }, [
@@ -170,10 +171,10 @@ export class HttpPlugin {
           if (retcode === 100) reason = '参数缺失或参数无效(比如QQ号小于0、message字段无内容等)';
         }
         return Promise.reject(
-          new HttpPluginError(api, `response data status is ${status}, reason is ${reason}`, retcode)
+          new HttpPluginError(api, reason, retcode)
         );
       } else {
-        return Promise.reject(new HttpPluginError(api, `fetch response status code is ${response.status}`));
+        return Promise.reject(new HttpPluginError(api, `HTTP响应码是${response.status}`));
       }
     } catch (e) {
       throw new HttpPluginError(api, e.message);
