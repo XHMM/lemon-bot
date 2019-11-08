@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.5.0 (2019年11月9日)
+### Fix bugs:
+- `HttpPlguin`未设置`method`为`POST`导致api调用报错 
+
 ## 0.4.4 (2019年10月23日)
 ### Breaking changes:
 - `HttpPlugin`类的`sendMsg`接口参数名修改，移除了`Number`冗余单词
