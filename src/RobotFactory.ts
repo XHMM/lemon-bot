@@ -183,6 +183,11 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
       res.end();
       return;
     }
+    if (!(robot in commandsMap)) {
+      Logger.debug(`[请求终止] 请求机器人${robot}不在已注册的的机器人列表，请检查create的robot参数和酷Q登录的机器人是否一致`);
+      res.end();
+      return;
+    }
     const serverPort = commandsMap[robot].port;
     const debugLogger = commandsMap[robot].debugLogger;
     const logger = commandsMap[robot].logger;
