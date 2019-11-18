@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.5.1 (2019年11月18日)
+### Enhancements:
+- 添加了已登录酷Q机器人和create传入的机器人不一致时的检测
+ 
 ## 0.5.0 (2019年11月9日)
 ### Fix bugs:
 - `HttpPlguin`未设置`method`为`POST`导致api调用报错 
