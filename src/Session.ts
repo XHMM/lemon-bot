@@ -1,5 +1,5 @@
-import { IHandyRedis } from 'handy-redis';
 import { assertType } from '@xhmm/utils';
+import * as IORedis from 'ioredis';
 import * as debugMod from 'debug';
 import { Message } from './CQHelper';
 import { RequestIdentity } from './Command';
@@ -15,29 +15,37 @@ export interface SessionData extends RequestIdentity {
 }
 
 export class Session {
-  private readonly redisClient: IHandyRedis;
-  private readonly debug: debugMod.Debugger
-  constructor(redisClient: any) {
-    this.redisClient = redisClient;
-    this.debug = debugMod(`lemon-bot[Session]`)
+  private static readonly debug = debugMod(`lemon-bot[Session]`);
+  private readonly redis: IORedis.Redis;
+  constructor(port?: number, host?: string, options?: IORedis.RedisOptions);
+  constructor(host?: string, options?: IORedis.RedisOptions);
+  constructor(options?: IORedis.RedisOptions);
+  constructor(...options: any) {
+    this.redis = new IORedis(options);
   }
 
   private static genSessionKey(params: RequestIdentity): SessionKey {
-    const clone = JSON.parse(JSON.stringify(params));
-    if (typeof clone.fromUser ==='object' && clone.fromUser.flag) delete clone.fromUser.flag;
-    return JSON.stringify(clone);
+    const clone: RequestIdentity = JSON.parse(JSON.stringify(params));
+    if (typeof clone.fromUser === 'object') {
+      if (clone.fromUser.flag) delete clone.fromUser.flag;
+    }
+    const key = Object.values(clone).join('-');
+    return key;
   }
 
   async getSession(params: RequestIdentity): Promise<SessionData | null> {
-    const data = await this.redisClient.hgetall(Session.genSessionKey(params));
-    if (data) {
+    const key = Session.genSessionKey(params)
+    const data = await this.redis.hgetall(key);
+    if (Object.keys(data).length !== 0) {
       Object.keys(data).map(key => {
         try {
-          data[key] = JSON.parse(data[key])
+          data[key] = JSON.parse(data[key] + '');
         } catch (e) {
           //
         }
-      })
+      });
+      Session.debug(`获取到key为${key}的session记录`);
+      // @ts-ignore
       return data;
     }
     return null;
@@ -45,7 +53,7 @@ export class Session {
 
   async setSession(
     params: RequestIdentity,
-    data: Omit<SessionData, 'sessionName'| keyof RequestIdentity>,
+    data: Omit<SessionData, 'sessionName' | keyof RequestIdentity>,
     sessionName: SessionData['sessionName'],
     expireSeconds = 300
   ): Promise<void> {
@@ -59,16 +67,15 @@ export class Session {
       ...params,
       className: data.className,
       historyMessage: data.historyMessage,
-      sessionName
-    }
+      sessionName,
+    };
 
-    await this.redisClient.hmset(
+    await this.redis.hmset(
       key,
-      // @ts-ignore
-      ...Object.entries(storedData).map(([key, val]) => [key, typeof val==='undefined' ? '': JSON.stringify(val)])
+      ...Object.entries(storedData).map(([key, val]) => [key, typeof val === 'undefined' ? '' : JSON.stringify(val)])
     );
-    await this.redisClient.expire(key, expireSeconds);
-    this.debug(`Key is ${key}:  函数名为${sessionName}的session函数已建立，时长${expireSeconds}秒`);
+    await this.redis.expire(key, expireSeconds);
+    Session.debug(`Key is ${key}:  函数名为${sessionName}的session函数已建立，时长${expireSeconds}秒`);
   }
 
   async updateSession<T extends keyof SessionData>(
@@ -77,13 +84,13 @@ export class Session {
     val: SessionData[T]
   ): Promise<void> {
     const key = Session.genSessionKey(params);
-    await this.redisClient.hset(key, hashKey, JSON.stringify(val));
-    this.debug(`Key is ${key}:  该session的${hashKey}字段已被更新`);
+    await this.redis.hset(key, hashKey, JSON.stringify(val));
+    Session.debug(`Key is ${key}:  该session的${hashKey}字段已被更新`);
   }
 
   async removeSession(params: RequestIdentity): Promise<void> {
     const key = Session.genSessionKey(params);
-    await this.redisClient.del(key);
-    this.debug(`Key is ${key}:  该session会话已被清除`);
+    await this.redis.del(key);
+    Session.debug(`Key is ${key}:  该session会话已被清除`);
   }
 }

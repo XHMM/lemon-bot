@@ -1,8 +1,11 @@
 # Change Log
 
 ## 0.6.0 (working)
+### Breaking changes:
+- removed need to manually pass redis client when using `Session`, checkout `README` to view updated doc. 
 ### Enhancements:
 - removed `signale`, now use `debug` for logging, checkout `README` about how to open/close debug mode. 
+
 
 ## 0.5.1 (2019年11月18日)
 ### Enhancements:
