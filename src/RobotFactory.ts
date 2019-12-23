@@ -1,10 +1,11 @@
 import { Express, Request, Response } from 'express';
 import { hasRepeat, getType } from '@xhmm/utils';
+import * as debugMod from 'debug';
 import { Command, Scope, TriggerType, SessionHandlerParams, TriggerScope, RequestIdentity, MessageFromType } from './Command';
 import { HttpPlugin } from './HttpPlugin';
 import { CQMessageHelper, CQRawMessageHelper, CQMessageFromTypeHelper } from './CQHelper';
 import { Session, SessionData } from './Session';
-import { Logger } from './Logger';
+import { warn, error } from './logger';
 
 interface CreateParams<C = unknown> {
   port: number;
@@ -32,8 +33,6 @@ type CommandsMap = Record<
     port: PortV;
     commands: CreateParams['commands'];
     session: CreateParams['session'];
-    debugLogger: any;
-    logger: any;
     secret: string;
     httpPlugin: HttpPlugin;
   }
@@ -57,8 +56,7 @@ export class RobotFactory {
   }: CreateParams<C>): CreateReturn {
     // note: Object.keys(obj)返回的都是字符串类型！
 
-    const debugLogger = Logger.createDebugLoggerWithLabel(robot + '');
-    const logger = Logger.createLoggerWithLabel(robot + '');
+    const debug = debugMod(`lemon-bot[QQ:${robot}]`);
 
     // 验证commands参数是否都合法
     const allDirectives: Directive[] = [];
@@ -73,11 +71,10 @@ export class RobotFactory {
       throw new Error(`机器人${robot}已存在，不可重复创建`);
 
     // 缓存每个机器人可处理的命令
-    debugLogger.debug(` - [插件] 正在监听运行在${httpPlugin.endpoint}的HTTP Plugin事件上报`);
-    if (session) debugLogger.debug(` - [功能] session函数处理已启用`);
-    else debugLogger.debug(` - [功能] session函数处理未开启`);
+    if (session) debug(` - session函数处理已启用`);
+    else debug(` - session函数处理未开启`);
     for (const [index, command] of Object.entries(commands)) {
-      debugLogger.debug(
+      debug(
         ` - [命令] 指令集:${command.directives.join(',')}  解析函数:${command.parse ? '有' : '无'}  作用域:${
           command.scope
         }  ${
@@ -92,15 +89,12 @@ export class RobotFactory {
       port,
       session,
       qq: robot,
-      debugLogger,
-      logger,
       secret,
       httpPlugin,
     };
 
     // 若该端口下服务器未创建，则创建并注册
     if (!Object.keys(RobotFactory.appsMap).includes(port + '')) {
-      Logger.debug(`[服务器]端口号为${port}的服务器已创建`);
       const app = createServer(RobotFactory.commandsMap, port);
       RobotFactory.appsMap[port + ''] = [app, 'idle'];
     }
@@ -109,10 +103,10 @@ export class RobotFactory {
       commands[idx] = new Proxy(cmd, {
         set(target, key: any, value) {
           if (Command.blackList.includes(key)) {
-            Logger.warn(`无法变更Command继承类的实例对象的"${key}"属性`);
+            warn(`无法变更Command继承类的实例对象的"${key}"属性`);
             return false;
           }
-          Logger.warn(
+          warn(
             `检测到命令类${
               // @ts-ignore
               target.__proto__.constructor.name
@@ -123,14 +117,14 @@ export class RobotFactory {
         },
         deleteProperty(target, key: any) {
           if (Command.blackList.includes(key)) {
-            Logger.warn(`无法删除Command继承类的实例对象的"${key}"属性`);
+            warn(`无法删除Command继承类的实例对象的"${key}"属性`);
             return false;
           }
           delete target[key];
           return true;
         },
         defineProperty(target, property, descriptor) {
-          Logger.warn(`对Command继承类的实例对象使用defineProperty已被阻止，请使用dot语法赋值`);
+          warn(`对Command继承类的实例对象使用defineProperty已被阻止，请使用dot语法赋值`);
           return false;
         },
       });
@@ -144,15 +138,15 @@ export class RobotFactory {
           RobotFactory.appsMap[port][1] = 'listening';
           app
             .listen(port, () => {
+              debug(` - ${port} 端口开始监听运行在 ${httpPlugin.endpoint} 的HTTP插件的事件上报`);
               resolve();
-              debugLogger.debug(`[服务器] http server listening on http://localhost:${port}/coolq`);
             })
             .on('error', err => {
-              Logger.error(err);
+              error(err);
               reject(err);
             });
         } else {
-          debugLogger.debug(`[服务器] http server listening on http://localhost:${port}/coolq`);
+          debug(` - ${port} 端口开始监听运行在 ${httpPlugin.endpoint} 的HTTP插件的事件上报`);
           resolve();
         }
       });
@@ -162,6 +156,7 @@ export class RobotFactory {
       delete RobotFactory.commandsMap[robot + ''];
       // TODO: 添加'同时停止node服务器'选项，须处理当同一端口有多机器人使用时，不能停止该服务器
       // 得用createServer().close(), 所以得改下对象存储结果
+      // debug(` - ${port} 端口已停止监听运行在 ${httpPlugin.endpoint} 的HTTP插件的事件上报`);
     }
     return {
       start,
@@ -173,24 +168,23 @@ export class RobotFactory {
 function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express {
   const express = require('express');
   const crypto = require('crypto');
+  const debug = debugMod(`lemon-bot[Port:${port}]`)
   const app = express();
   app.use(express.json());
 
   app.post('/coolq', async (req: Request, res: Response) => {
     const robot = +req.header('X-Self-ID')!;
     if (!robot) {
-      Logger.debug('[请求终止] 该请求无机器人头信息(X-Self-ID)，不做处理');
+      debug('[请求终止] 该请求无机器人头信息(X-Self-ID)，不做处理');
       res.end();
       return;
     }
     if (!(robot in commandsMap)) {
-      Logger.debug(`[请求终止] 请求机器人${robot}不在已注册的的机器人列表，请检查create的robot参数和酷Q登录的机器人是否一致`);
+      debug(`[请求终止] 请求机器人${robot}不在已注册的的机器人列表，请检查create的robot参数和酷Q登录的机器人是否一致`);
       res.end();
       return;
     }
     const serverPort = commandsMap[robot].port;
-    const debugLogger = commandsMap[robot].debugLogger;
-    const logger = commandsMap[robot].logger;
     const secret = commandsMap[robot].secret;
     const session = commandsMap[robot].session;
     const httpPlugin = commandsMap[robot].httpPlugin;
@@ -201,9 +195,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
       由于目前的逻辑实现，会导致当给机器人A发消息时会被8888端口服务器处理，故做下述判断解决该情况
      */
     if (serverPort !== port) {
-      logger.warn(`[请求终止] 请确保HTTP插件配置文件的post_url端口号与传给RobotFactory.create的port参数一致`);
-      res.end();
-      return;
+      throw new Error(`端口号配置错误，请检查机器人${robot}的HTTP插件配置文件的post_url端口号为${serverPort}`)
     }
     if (secret) {
       let signature = req.header('X-Signature');
@@ -214,7 +206,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
       hmac.update(JSON.stringify(req.body));
       const test = hmac.digest('hex');
       if (test !== signature) {
-        debugLogger.debug('[请求终止] 消息体与签名不符，结束');
+        debug('[请求终止] 消息体与签名不符，结束');
         res.end();
         return;
       }
@@ -228,7 +220,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
     const rawMessage = req.body.raw_message && req.body.raw_message;
     const messageFromType = CQMessageFromTypeHelper.getMessageFromType({ message_type: req.body.message_type, sub_type: req.body.sub_type });
     if (messageFromType === MessageFromType.unknown) {
-      debugLogger.debug('[请求终止]  暂不支持的消息类型，不做处理');
+      debug('[请求终止] 暂不支持的消息类型，不做处理');
       res.end();
       return;
     }
@@ -298,13 +290,13 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
             groupNumber,
             httpPlugin,
           });
-          debugLogger.debug(`[消息处理] 使用${className}类的session${sessionData.sessionName}函数处理完毕`);
+          debug(`[消息处理] 使用${className}类的session${sessionData.sessionName}函数处理完毕`);
           return;
         }
       }
       res.end();
       await session!.removeSession(requestIdentity);
-      logger.warn(
+      debug(
         `[消息处理] 未在${sessionData.className}类中找到与缓存匹配的${
           sessionData.sessionName
         }函数，当前会话已重置`
@@ -359,12 +351,12 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
             if (typeof parsedData === 'undefined') {
               continue;
             }
-            debugLogger.debug(`[消息处理] 使用${className}类的parse函数处理通过`);
+            debug(`[消息处理] 使用${className}类的parse函数处理通过`);
           }
           // 若无parse函数，则直接和指令集进行相等性匹配，不匹配则继续循环
           else {
             if (!directives.includes(CQRawMessageHelper.removeAt(rawMessage))) continue;
-            debugLogger.debug(`[消息处理] 使用${className}类的指令集处理通过`);
+            debug(`[消息处理] 使用${className}类的指令集处理通过`);
           }
 
           let replyData;
@@ -383,7 +375,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
                   })
                 : noSessionError,
             });
-            debugLogger.debug(
+            debug(
               `[消息处理] 使用${className}类的both函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
             );
           } else {
@@ -404,7 +396,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
                     })
                   : noSessionError,
               });
-              debugLogger.debug(
+              debug(
                 `[消息处理] 使用${className}类的group函数处理完毕${
                   typeof replyData === 'undefined' ? '(无返回值)' : ''
                 }`
@@ -426,7 +418,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
                     })
                   : noSessionError,
               });
-              debugLogger.debug(
+              debug(
                 `[消息处理] 使用${className}类的user函数处理完毕${typeof replyData === 'undefined' ? '(无返回值)' : ''}`
               );
             }

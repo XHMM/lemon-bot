@@ -16,23 +16,19 @@
 
 ## 前言
 
-该项目仍处于早期开发版，故版本变动较为频繁，但会尽可能保证基本开发方式保持不变，具体变动见 [Changelog](https://github.com/XHMM/lemon-bot/blob/master/CHANGELOG.md)
+该项目仍处于早期开发版，故版本变动较为频繁，但会尽可能保证基本开发方式不变，具体变动见 [Changelog](https://github.com/XHMM/lemon-bot/blob/master/CHANGELOG.md)
 
 ## 准备
 
 1. 安装 [nodejs](https://nodejs.org/en/download/) (该框架基于v10.16.3版本进行开发与测试)
 
-2. 安装 酷Q和HTTP插件：
+1. 安装 酷Q 和 HTTP插件：
+    - Windows: 首先前往酷Q的[版本发布](https://cqp.cc/b/news)页面下载（Air为免费版，Pro为收费版），下载后解压启动`CAQ.exe`或`CQP.exe`并登陆你的QQ机器人账号。然后根据[CoolQ HTTP API插件文档](https://cqhttp.cc/docs/)中的"手动安装"部分的教程进行插件安装。
+    - Linux / Mac: 查看[CoolQ HTTP API插件文档](https://cqhttp.cc/docs/)中的"使用Docker"部分的教程进行安装
 
-   - Windows下：
-     1. 前往酷Q的[版本发布](https://cqp.cc/b/news)页面下载（Air为免费版，Pro为收费版），下载后解压启动`CAQ.exe`或`CQP.exe`并登陆你的QQ机器人账号
-     2. 查看CoolQ HTTP API插件的[文档页面](https://cqhttp.cc/docs/)中的"手动安装"部分的教程进行插件安装
-   - Linux/MacOS下：
-     1. 查看CoolQ HTTP API插件的[文档页面](https://cqhttp.cc/docs/)中的"使用Docker"部分的教程进行安装
+1. 修改HTTP插件的配置文件: 每个账号的配置文件存放路径一般为`/path/to/酷Q/data/app/io.github.richardchien.coolqhttpapi/config/QQ号.json` (也可能是`.ini`格式)。下面以`.json`格式说明（详细配置说明见[文档](https://cqhttp.cc/docs/#/Configuration?id=配置项)）：
 
-3. 修改HTTP插件的配置文件：每个账号的配置文件存放路径一般为`/path/to/酷Q/data/app/io.github.richardchien.coolqhttpapi/config/QQ号.json` (也可能是`.ini`格式)。下面以`.json`格式说明（详细配置说明见[文档](https://cqhttp.cc/docs/#/Configuration?id=配置项)）：
-
-   ```js
+   ```metadata json
    {
      "host": "[::]",
      "port": 5700, // 该HTTP插件的运行端口
@@ -44,17 +40,15 @@
    }
    ```
 
-4. 若要使用[session函数](#class-session)，则需要安装 [redis](https://redis.io/download)
+1. 安装该node模块： `npm i lemon-bot`
 
-5. 安装该node模块： `npm i lemon-bot`
+1. 由于该框架使用了 [decorator](https://www.typescriptlang.org/docs/handbook/decorators.html) 语法:
 
-6. 该框架需要使用[decorator](https://www.typescriptlang.org/docs/handbook/decorators.html)语法：
+   - 若你是使用 Javascript 进行开发，则需要[配置babel](https://babeljs.io/docs/en/babel-plugin-proposal-decorators)以支持该特性。
 
-   - 若是使用 Javascript 进行开发，则需要[配置babel](https://babeljs.io/docs/en/babel-plugin-proposal-decorators)以支持该写法。
+   - 若是使用 Typescript，则需要在`tsconfig.json`中启用decorator：
 
-   - 若是采用 Typescript，则需要在`tsconfig.json`中启用decorator：
-
-     ```js
+     ```metadata json
      {
        "compilerOptions": {
          // ...
@@ -62,8 +56,6 @@
        }
      }
      ```
-
-
 
 ## Demo
 
@@ -101,22 +93,21 @@ robot.start(); // 启动
 
 在运行该代码前，请确保：
 
-- 酷Q和HTTP插件处于运行状态
-- 对HTTP插件进行了正确配置
-- 上述代码中`robot`字段改为自己当前登陆的机器人QQ
+- 酷Q和HTTP插件处于运行状态，且上述代码中的`robot`值为当前登录的机器人QQ
+- 安装要求修改了HTTP插件的配置文件
 
 然后在命令行内输入`npx ts-node index.ts`即可启动机器人。
 
-一对一聊天测试：用你的QQ向机器人发送 "测试" 或 "test" 文本，会发现机器人返回了 "你好呀[你的QQ号]"。
+一对一聊天测试：用一个加了机器人为好友的QQ号向机器人发送 "测试" 或 "test" ，会发现机器人返回了 "你好呀[你的QQ号]"。
 
-群聊测试：将该机器人拉入群内，然后在群内发送"测试"或"test"文本，会发现机器人连续返回了两条消息:  "触发群是[机器人所在Q群]" 和 "触发用户是[你的QQ号]"。
+群聊测试：将该机器人拉入群内，然后在群内发送"测试"或"test"，会发现机器人连续返回了两条消息:  "触发群是[机器人所在Q群]" 和 "触发用户是[你的QQ号]"。
 
 ## 案例
 - [小心机器人](https://github.com/XHMM/bot-xiaoxin)
 
 ## API文档
 
-注：下述的类型定义以及ts enum等含义都可在源码内直接查看以帮助更好的理解。
+tips：下述涉及的类型定义和enum定义可直接前往源码内查看，可帮助更好的理解其含义。
 
 ### Class RobotFactory
 
@@ -132,7 +123,6 @@ robot.start(); // 启动
 | robot      | number     | 机器人QQ号                                             |          |
 | httpPlugin | HttpPlugin | HTTP插件实例                                           |          |
 | commands   | Command[]  | 需要注册的命令                                         |          |
-| session    | Session    | 传入该参数运行使用session函数                          | optional |
 | secret     | string     | 须和HTTP插件配置文件值保持一致，用于对上报数据进行验证 | optional |
 | context    | any        | 该属性会作为Command继承类的成员属性，默认值为null      | optional |
 
@@ -188,7 +178,7 @@ class MyCommand extends Command<C> {
 }
 ```
 
-#### 成员属性：
+#### 实例属性：
 
 ##### context属性
 
@@ -390,25 +380,10 @@ PluginConfig：一个对象，包含如下属性
 
 
 
-### Class Session
+// TODO: 待修改这部分文档
+### 上下文功能
 
-该类通过与redis搭配，可实现上下文功能。
-
-#### constructor(redisClient: any)
-
-该构造函数接收一个redisClient对象，其值可为来自[node redis](https://github.com/NodeRedis/node_redis)或[handy-redis](https://github.com/mmkal/handy-redis)包创建的client对象：
-
-```js
-import { RobotFactory, HttpPlugin, Session } from 'lemon-bot';
-import { createHandyClient } from 'handy-redis';
-
-const robot = RobotFactory.create({
-  // ...
-  session: new Session(createHandyClient())
-});
-```
-
-#### 如何使用上下文功能？
+#### 如何启用上下文功能？
 
 通过在`create`函数里传入`session`参数(如上述代码所示)，即可开启使用session函数/上下文功能。
 
@@ -501,35 +476,6 @@ robot.start();
 在session存在期间，即使发给机器人的消息满足其他命令的处理条件，但并不会执行他们，知道session过期或结束。
 
 
-
-### Class Logger
-
-控制日志打印。
-
-#### static enableDebug()
-
-开启开发日志输出。
-
-#### static disableDebug()
-
-关闭开发日志输出。
-
-
-Example：
-
-```js
-if (process.env.NODE_ENV === 'development') 
-    Logger.enableDebug();
-else
-    Logger.disableDebug();
-```
-
-
-
-
-
-
-
 ## 安全指南
 
 1. 尽可能避免HTTP插件的上报地址(即node服务器地址)可被外网访问，这会导致收到恶意请求。
@@ -575,7 +521,7 @@ else
    })
    ```
 
-### 3. 如何实现群组session？
+### 3. 如何实现群组下的session函数？
 
 比如我想实现这样一个命令:我艾特机器人回复"收集反馈"后，接下来群员的发言内容会全部被采集，直到我艾特机器人发送"收集结束"。
 

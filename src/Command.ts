@@ -2,8 +2,8 @@
 import { assertType, getType } from '@xhmm/utils';
 import { Message, CQMessageFromTypeHelper } from './CQHelper';
 import { HttpPlugin } from './HttpPlugin';
-import { Logger } from './Logger';
 import { HistoryMessage } from './Session';
+import { warn } from './logger';
 
 type OrPromise<T> = T | Promise<T>;
 
@@ -206,7 +206,7 @@ export function include(include: number[]) {
     } else if (name === 'user') {
       if ('excludeUser' in proto) throw new Error('exclude and include decorators cannot used at the same time');
       proto.includeUser = include;
-    } else Logger.warn('include decorator only works with user or group function');
+    } else warn('include decorator only works with user or group function');
   };
 }
 // 用于user和group。指定该选项时，这里面的qq/qq群不可触发该命令。
@@ -218,14 +218,14 @@ export function exclude(exclude: number[]) {
     } else if (name === 'user') {
       if ('includeUser' in proto) throw new Error('exclude and include decorators cannot used at the same time');
       proto.excludeUser = exclude;
-    } else Logger.warn('exclude decorator only works with user or group function');
+    } else console.warn('exclude decorator only works with user or group function');
   };
 }
 // 用于group和both。设置群组内命令触发方式
 export function trigger(type: TriggerType) {
   return function(proto, name, descriptor) {
     if (name !== 'group' && name !== 'both') {
-      Logger.warn('trigger decorator only works with group or both function.');
+      warn('trigger decorator only works with group or both function.');
     } else proto.triggerType = type;
   };
 }
@@ -233,7 +233,7 @@ export function trigger(type: TriggerType) {
 export function scope(role: TriggerScope) {
   return function(proto, name, descriptor) {
     if (name !== 'group' && name !== 'both') {
-      Logger.warn('trigger decorator only works with group or both function.');
+      warn('trigger decorator only works with group or both function.');
     } else proto.triggerScope = role;
   };
 }

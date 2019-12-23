@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.6.0 (working)
+### Enhancements:
+- removed `signale`, now use `debug` for logging, checkout `README` about how to open/close debug mode. 
+
 ## 0.5.1 (2019年11月18日)
 ### Enhancements:
 - 添加了已登录酷Q机器人和create传入的机器人不一致时的检测

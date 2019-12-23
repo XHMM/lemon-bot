@@ -1,5 +1,4 @@
 import nodeFetch from 'node-fetch';
-import { Signale } from 'signale';
 import { conditionalObjectMerge } from '@xhmm/utils';
 
 enum APIList {
@@ -92,14 +91,10 @@ interface PluginConfig {
   accessToken?: string; // 需要搭配配置文件
 }
 export class HttpPlugin {
-  logger: Signale;
   endpoint: string;
   config: PluginConfig;
 
   constructor(endpoint: string, config?: PluginConfig) {
-    this.logger = new Signale({
-      scope: 'coolq-http-api',
-    });
     this.endpoint = endpoint;
     this.config = config || {};
   }

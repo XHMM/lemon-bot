@@ -1,7 +1,7 @@
 import { IHandyRedis } from 'handy-redis';
 import { assertType } from '@xhmm/utils';
+import * as debugMod from 'debug';
 import { Message } from './CQHelper';
-import { Logger } from './Logger';
 import { RequestIdentity } from './Command';
 
 type SessionKey = string;
@@ -16,8 +16,10 @@ export interface SessionData extends RequestIdentity {
 
 export class Session {
   private readonly redisClient: IHandyRedis;
+  private readonly debug: debugMod.Debugger
   constructor(redisClient: any) {
     this.redisClient = redisClient;
+    this.debug = debugMod(`lemon-bot[Session]`)
   }
 
   private static genSessionKey(params: RequestIdentity): SessionKey {
@@ -66,7 +68,7 @@ export class Session {
       ...Object.entries(storedData).map(([key, val]) => [key, typeof val==='undefined' ? '': JSON.stringify(val)])
     );
     await this.redisClient.expire(key, expireSeconds);
-    Logger.debug(`[session] Key is ${key}:  函数名为${sessionName}的session函数已建立，时长${expireSeconds}秒`);
+    this.debug(`Key is ${key}:  函数名为${sessionName}的session函数已建立，时长${expireSeconds}秒`);
   }
 
   async updateSession<T extends keyof SessionData>(
@@ -76,12 +78,12 @@ export class Session {
   ): Promise<void> {
     const key = Session.genSessionKey(params);
     await this.redisClient.hset(key, hashKey, JSON.stringify(val));
-    Logger.debug(`[session] Key is ${key}:  该session的${hashKey}字段已被更新`);
+    this.debug(`Key is ${key}:  该session的${hashKey}字段已被更新`);
   }
 
   async removeSession(params: RequestIdentity): Promise<void> {
     const key = Session.genSessionKey(params);
     await this.redisClient.del(key);
-    Logger.debug(`[session] Key is ${key}:  该session会话已被清除`);
+    this.debug(`Key is ${key}:  该session会话已被清除`);
   }
 }
