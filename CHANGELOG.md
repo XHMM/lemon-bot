@@ -1,6 +1,6 @@
 # Change Log
 
-## 0.6.0 (working)
+## 0.6.0 (2019年12月23日)
 ### Breaking changes:
 - removed need to manually pass redis client when using `Session`, checkout `README` to view updated doc. 
 ### Enhancements:
