@@ -27,20 +27,26 @@
    - Windows: 首先前往酷Q的[版本发布](https://cqp.cc/b/news)页面下载（Air为免费版，Pro为收费版），下载后解压启动 `CAQ.exe` 或 `CQP.exe` 并登陆你的QQ机器人账号。然后根据[CoolQ HTTP API插件文档](https://cqhttp.cc/docs/)中的"手动安装"部分的教程进行插件安装。
    - Linux / Mac: 查看[CoolQ HTTP API插件文档](https://cqhttp.cc/docs/)中的"使用Docker"部分的教程进行安装
 
-3. 修改HTTP插件的配置文件: 每个账号的配置文件存放路径一般为 `/path/to/酷Q/data/app/io.github.richardchien.coolqhttpapi/config/QQ号.json` (也可能是 `.ini` 格式)。下面以 `.json` 格式来说明在使用该框架时必须要进行修改的配置项（其他配置说明可见[插件文档](https://cqhttp.cc/docs/#/Configuration?id=配置项)）：
+3. 修改 HTTP插件 配置：
 
-   ```metadata json
-   {
-     "port": 5700, // HTTP插件的运行端口，请自行指定
-     "use_http": true, // 须设为true
-     "post_url": "http://127.0.0.1:8888/coolq", // 这是node服务器的运行地址以及监听的路由，你只可以修改端口号，请勿修改路由地址
-     "access_token": "", // 可选。若指定此值，则使用框架时也须配置
-     "secret": "", // 可选。若指定此值，则使用框架时也须配置
-     "post_message_format": "array" // 请将该选项务必设为array
-   }
-   ```
+   每个账号的配置文件存放路径一般为 `/path/to/酷Q/data/app/io.github.richardchien.coolqhttpapi/config/QQ号.json` (也可能是 `.ini` 格式)。 附：[插件文档](https://cqhttp.cc/docs/#/Configuration?id=配置项)
 
-4. 安装该node模块： `npm i lemon-bot`
+   - 非docker环境：手动前往配置文件所在目录进行修改：
+
+     ```metadata json
+     {
+       "port": 5700, // HTTP插件的运行端口，请自行指定或使用默认值
+       "use_http": true, // 须设为true
+       "post_url": "http://127.0.0.1:8888/coolq", // 这是node服务器的运行地址以及监听的路由，你只可以修改端口号，请勿修改路由地址
+       "access_token": "", // 可选。若指定此值，则使用框架时也须配置
+       "secret": "", // 可选。若指定此值，则使用框架时也须配置
+       "post_message_format": "array" // 【重要】请务必将该选项设为array
+     }
+     ```
+
+   - docker环境: 使用环境变量注入的形式来在容器创建时设置好配置，或是手动前往挂载目录下按照上述修改配置文件。
+
+4. 安装该node包： `npm i lemon-bot`
 
 5. 由于该框架使用了 [decorator](https://www.typescriptlang.org/docs/handbook/decorators.html) 语法:
 
@@ -51,8 +57,10 @@
      ```metadata json
      {
        "compilerOptions": {
-         // ...
-         "experimentalDecorators": true
+         "experimentalDecorators": true,
+     
+         // 此外，由于该框架的编译版本为es6，故请务必设置自己的target为 *非es5*, 否则会报错
+         "target": "es6"
        }
      }
      ```
@@ -165,6 +173,7 @@ import { Command} from 'lemon-bot';
 import { ParseParams, ParseReturn, UserHandlerParams, GroupHandlerParams, SessionHandlerParams, HandlerReturn } from 'lemon-bot'
 
 class MyCommand extends Command<C> {
+    // 下面两个实例属性是默认提供的，可在函数内直接访问，故请不要出现同名属性。
     context: C;
     httpPlugin;
     
@@ -183,6 +192,8 @@ class MyCommand extends Command<C> {
 }
 ```
 
+#### 属性、函数说明：
+
 ##### context属性
 
 该属性的值等同于使用 `RobotFactory.create` 时传给 `context `参数的内容，默认为null。
@@ -197,7 +208,7 @@ class MyCommand extends Command<C> {
 
 ##### parse函数
 
-上述的 `directive函数` 无法实现自定义命令解析，比如想要获取 "天气 西安" 这一消息中的城市信息，则需要使用 `parse函数` 手动处理，该函数的返回值信息可在 `user函数` 、`group函数`、`both函数` 的参数中访问。**提醒：**若提供了该函数，则不会再使用 `directive` 函数进行命令处理。
+上面的 `directive函数` 无法实现自定义命令解析，比如想要获取 "天气 西安" 这一消息中的城市信息，则需要使用 `parse函数` 手动处理，该函数的返回值信息可在 `user函数` 、`group函数`、`both函数` 的参数中访问。**提醒：** 若提供了该函数，则不会再使用 `directive` 函数进行命令处理。
 
 `directive函数` 和 `parse函数` 是允许同时存在的，并且十分建议不要省略 `directive函数` 的声明，因为通过该函数的返回值内容可以提升代码阅读性，方便识别该命令的用途。
 

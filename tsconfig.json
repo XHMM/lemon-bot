@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es6", // cannot be es5 because I have Error extends related code
+    "target": "es6", // cannot be es5 because I have 'extends Error' code, you can google "typescript extends error" for why
     "module": "commonjs",
     "moduleResolution": "node",
     "alwaysStrict": true,
