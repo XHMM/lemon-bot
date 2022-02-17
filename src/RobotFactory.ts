@@ -1,11 +1,12 @@
-import { Express, Request, Response } from 'express';
-import { hasRepeat, getType } from '@xhmm/utils';
+import { Server } from "http";
+import { Request, Response } from 'express';
+import { hasRepeat, type } from '@xhmm/utils';
 import * as debugMod from 'debug';
 import { Command, Scope, TriggerType, SessionHandlerParams, TriggerScope, RequestIdentity, MessageFromType } from './Command';
 import { HttpPlugin } from './HttpPlugin';
 import { CQMessageHelper, CQRawMessageHelper, CQMessageFromTypeHelper } from './CQHelper';
 import { Session, SessionData } from './Session';
-import { warn, error } from './logger';
+import { error } from './logger';
 
 interface CreateParams<C = unknown> {
   port: number;
@@ -37,13 +38,13 @@ type CommandsMap = Record<
     httpPlugin: HttpPlugin;
   }
 >;
-type AppsMap = Record<PortK, [Express, 'listening' | 'idle']>;
+type ServersMap = Record<PortK, [Server, 'listening' | 'idle']>;
 
 export class RobotFactory {
   // 不同机器人和其命令以及运行在的node端口
   private static commandsMap: CommandsMap = {};
   // 不同端口和对应的node服务器
-  private static appsMap: AppsMap = {};
+  private static serversMap: ServersMap = {};
 
   public static create<C>({
     port,
@@ -56,15 +57,13 @@ export class RobotFactory {
   }: CreateParams<C>): CreateReturn {
     // note: Object.keys(obj)返回的都是字符串类型！
 
-    const debug = debugMod(`lemon-bot[QQ:${robot}]`);
+    const debug = debugMod(`lemon-bot[QQ:${robot} PORT:${port}]`);
 
-    // 验证commands参数是否都合法
     const allDirectives: Directive[] = [];
     for (const command of commands) {
-      Command.validate(command);
       allDirectives.push(...command.directives);
     }
-    if (hasRepeat(allDirectives)) throw new Error('所有的Command对象间的指令不能重复');
+    if (hasRepeat(allDirectives)) throw new Error(`Command类中出现了重复指令，请对重复得到指令名进行修改：\n${allDirectives}`);
 
     // 验证robotQQ是否合法
     if (Object.keys(RobotFactory.commandsMap).includes(robot + ''))
@@ -78,10 +77,10 @@ export class RobotFactory {
         ` - [命令] 指令集:${command.directives.join(',')}  解析函数:${command.parse ? '有' : '无'}  作用域:${
           command.scope
         }  ${
-          command.scope === Scope.user ? '' : `是否艾特:${command.triggerType ? command.triggerType : TriggerType.at}`
+          command.scope === Scope.user ? '' : `是否艾特:${command.triggerType}`
         }`
       );
-      command.context = context || null; // 注册context
+      command.context = context; // 注册context
       command.httpPlugin = httpPlugin; // 注册httpPlugin
     }
     RobotFactory.commandsMap[robot + ''] = {
@@ -94,48 +93,17 @@ export class RobotFactory {
     };
 
     // 若该端口下服务器未创建，则创建并注册
-    if (!Object.keys(RobotFactory.appsMap).includes(port + '')) {
-      const app = createServer(RobotFactory.commandsMap, port);
-      RobotFactory.appsMap[port + ''] = [app, 'idle'];
+    if (!Object.keys(RobotFactory.serversMap).includes(port + '')) {
+      const app = createServer(RobotFactory.commandsMap, debug);
+      RobotFactory.serversMap[port + ''] = [app, 'idle'];
     }
-
-    commands.forEach((cmd, idx) => {
-      commands[idx] = new Proxy(cmd, {
-        set(target, key: any, value) {
-          if (Command.blackList.includes(key)) {
-            warn(`无法变更Command继承类的实例对象的"${key}"属性`);
-            return false;
-          }
-          warn(
-            `检测到命令类${
-              // @ts-ignore
-              target.__proto__.constructor.name
-            }的实例对象添加了"${key}"属性。强烈不建议给命令类添加任何的自定义属性，因为不同请求会共享同一实例，由于异步原因可能会造成数据不一致。`
-          );
-          target[key] = value;
-          return true;
-        },
-        deleteProperty(target, key: any) {
-          if (Command.blackList.includes(key)) {
-            warn(`无法删除Command继承类的实例对象的"${key}"属性`);
-            return false;
-          }
-          delete target[key];
-          return true;
-        },
-        defineProperty(target, property, descriptor) {
-          warn(`对Command继承类的实例对象使用defineProperty已被阻止，请使用dot语法赋值`);
-          return false;
-        },
-      });
-    });
 
     // 启动服务器，即调用listen方法
     function start(): Promise<void> {
       return new Promise<void>((resolve, reject) => {
-        const [app, status] = RobotFactory.appsMap[port];
+        const [app, status] = RobotFactory.serversMap[port];
         if (status === 'idle') {
-          RobotFactory.appsMap[port][1] = 'listening';
+          RobotFactory.serversMap[port][1] = 'listening';
           app
             .listen(port, () => {
               debug(` - ${port} 端口开始监听运行在 ${httpPlugin.endpoint} 的HTTP插件的事件上报`);
@@ -154,9 +122,9 @@ export class RobotFactory {
     // 停止当前机器人，则移除当前停止机器人的注册信息
     function stop(): void {
       delete RobotFactory.commandsMap[robot + ''];
-      // TODO: 添加'同时停止node服务器'选项，须处理当同一端口有多机器人使用时，不能停止该服务器
-      // 得用createServer().close(), 所以得改下对象存储结果
-      // debug(` - ${port} 端口已停止监听运行在 ${httpPlugin.endpoint} 的HTTP插件的事件上报`);
+      RobotFactory.serversMap[robot + ''][0].close((err) => {
+        debug(` - ${port} 端口已停止监听运行在 ${httpPlugin.endpoint} 的HTTP插件的事件上报`);
+      })
     }
     return {
       start,
@@ -165,38 +133,38 @@ export class RobotFactory {
   }
 }
 
-function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express {
+function createServer(commandsMap: Readonly<CommandsMap>, debug: any): Server {
   const express = require('express');
   const crypto = require('crypto');
-  const debug = debugMod(`lemon-bot[Port:${port}]`)
+  const http = require('http');
+
   const app = express();
+  const server = http.createServer(app)
   app.use(express.json());
 
   app.post('/coolq', async (req: Request, res: Response) => {
-    const robot = +req.header('X-Self-ID')!;
-    if (!robot) {
+    const requestRobot = +req.header('X-Self-ID')!;
+    if (!requestRobot) {
       debug('[请求终止] 该请求无机器人头信息(X-Self-ID)，不做处理');
       res.end();
       return;
     }
-    if (!(robot in commandsMap)) {
-      debug(`[请求终止] 请求机器人${robot}不在已注册的的机器人列表，请检查create的robot参数和酷Q登录的机器人是否一致`);
+    if (!(requestRobot in commandsMap)) {
+      debug(`[请求终止] 请求机器人${requestRobot}不在已注册的的机器人列表，请检查create的robot参数和酷Q登录的机器人是否一致`);
       res.end();
       return;
     }
-    const serverPort = commandsMap[robot].port;
-    const secret = commandsMap[robot].secret;
-    const session = commandsMap[robot].session;
-    const httpPlugin = commandsMap[robot].httpPlugin;
 
     /*
       机器人A的create传入port是8888，配置文件post_url是8888
-      机器人B的create传入port是8889，配置文件post_url是8888
-      由于目前的逻辑实现，会导致当给机器人A发消息时会被8888端口服务器处理，故做下述判断解决该情况
-     */
-    if (serverPort !== port) {
-      throw new Error(`端口号配置错误，请检查机器人${robot}的HTTP插件配置文件的post_url端口号为${serverPort}`)
+      机器人B的create传入port是8889，配置文件post_url误配为8888，本应是8889
+      当给机器人B发消息时会被8888端口服务器处理，故做下述判断解决该情况
+   */
+    const serverPort = commandsMap[requestRobot].port;
+    if (serverPort !== server.address().port) {
+      throw new Error(`端口号配置错误，请检查机器人${requestRobot}的HTTP插件配置文件的post_url端口号是否为${serverPort}`)
     }
+    const secret = commandsMap[requestRobot].secret;
     if (secret) {
       let signature = req.header('X-Signature');
       if (!signature) throw new Error('无X-Signature请求头，请确保HTTP插件的配置文件配置了secret选项');
@@ -212,10 +180,10 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
       }
     }
 
-    // ------------------------------------------------------------------------
-    // ------------ 请求信息统一在此设置，后面代码不要使用req.body的值-------------
-    // ------------------------------------------------------------------------
-    const commands = commandsMap[robot].commands;
+    //// 请求信息统一在此设置，后面代码不要使用req.body的值
+    const session = commandsMap[requestRobot].session;
+    const httpPlugin = commandsMap[requestRobot].httpPlugin;
+    const commands = commandsMap[requestRobot].commands;
     const message = req.body.message && CQMessageHelper.normalizeMessage(req.body.message);
     const rawMessage = req.body.raw_message && req.body.raw_message;
     const messageFromType = CQMessageFromTypeHelper.getMessageFromType({ message_type: req.body.message_type, sub_type: req.body.sub_type });
@@ -224,7 +192,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
       res.end();
       return;
     }
-    const isAt = CQMessageHelper.isAt(robot, message);
+    const isAt = CQMessageHelper.isAt(requestRobot, message);
     const requestBody = req.body;
     const userRole = req.body.sender.role || 'member';
     const userNumber = CQMessageFromTypeHelper.isQQGroupAnonymousMessage(messageFromType) ? req.body.anonymous : req.body.user_id;
@@ -232,10 +200,8 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
       delete userNumber.flag;
     }
     const groupNumber = req.body.group_id
-    const robotNumber = robot;
-    // ------------------------------------------------------------------------
-    // ------------------------------------------------------------------------
-    // ------------------------------------------------------------------------
+    const robotNumber = requestRobot;
+    //// 请求信息统一在此设置，后面代码不要使用req.body的值 END
 
     const requestIdentity: RequestIdentity = {
       messageFromType,
@@ -306,13 +272,11 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
     else {
       for (const command of commands) {
         const className = command.constructor.name;
-        const { includeGroup, excludeGroup, includeUser, excludeUser, scope, directives } = command;
+        const { includeGroup, excludeGroup, includeUser, excludeUser, scope, directives, triggerScope, triggerType } = command;
         const parse = command.parse && command.parse.bind(command);
         const user = command.user && command.user.bind(command);
         const group = command.group && command.group.bind(command);
         const both = command.both && command.both.bind(command);
-        const triggerType = command.triggerType || TriggerType.both;
-        const triggerScope = command.triggerScope || TriggerScope.all;
 
         // 判断当前命令和消息源是否匹配
         const matchGroupScope =
@@ -324,15 +288,15 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
             if (triggerType === TriggerType.at && !isAt) continue;
             if (triggerType === TriggerType.noAt && isAt) continue;
 
-            if (includeGroup && !includeGroup.includes(groupNumber)) continue;
-            if (excludeGroup && excludeGroup.includes(groupNumber)) continue;
+            if (!includeGroup.includes(groupNumber)) continue;
+            if (excludeGroup.includes(groupNumber)) continue;
 
             // @ts-ignore
             if ((TriggerScope[userRole] & triggerScope) === 0) continue;
           }
           if (matchUserScope) {
-            if (includeUser && !includeUser.includes(userNumber)) continue;
-            if (excludeUser && excludeUser.includes(userNumber)) continue;
+            if (!includeUser.includes(userNumber)) continue;
+            if (excludeUser.includes(userNumber)) continue;
           }
 
           // --- 根据指令或解析函数进行处理
@@ -436,7 +400,7 @@ function createServer(commandsMap: Readonly<CommandsMap>, port: number): Express
     return;
   });
 
-  return app;
+  return server;
 }
 
 async function handleReplyData(
@@ -448,7 +412,7 @@ async function handleReplyData(
     groupNumber?: number;
   }
 ): Promise<void> {
-  const replyType = getType(replyData);
+  const replyType = type(replyData);
   if (replyType === 'array') {
     for (const reply of replyData as string[]) {
       await deps.httpPlugin.sendMsg(

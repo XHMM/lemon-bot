@@ -6,7 +6,7 @@ import { RequestIdentity } from './Command';
 
 type SessionKey = string;
 
-export type HistoryMessage = Record<string, Array<Message[]>>; // string是session name
+export type HistoryMessage = Record<string, Array<Message[]>>; // string是session函数的名称
 
 export interface SessionData extends RequestIdentity {
   className: string; // 本次会话的session所属类
@@ -17,6 +17,7 @@ export interface SessionData extends RequestIdentity {
 export class Session {
   private static readonly debug = debugMod(`lemon-bot[Session]`);
   private readonly redis: IORedis.Redis;
+
   constructor(port?: number, host?: string, options?: IORedis.RedisOptions);
   constructor(host?: string, options?: IORedis.RedisOptions);
   constructor(options?: IORedis.RedisOptions);
@@ -45,8 +46,7 @@ export class Session {
         }
       });
       Session.debug(`获取到key为${key}的session记录`);
-      // @ts-ignore
-      return data;
+      return data as unknown as SessionData;
     }
     return null;
   }

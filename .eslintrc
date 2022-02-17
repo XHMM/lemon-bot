@@ -1,3 +1,18 @@
 {
-  "extends": ["xhmm/ts-node"]
+  "extends": [
+    "xhmm/ts-node"
+  ],
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "modules": true
+    }
+  },
+  "rules": {
+    /* 下面rules 已更新在 my-config-files */
+    "node/no-unsupported-features/es-syntax": "off",
+    "node/no-missing-require": "off",
+    "node/no-missing-import": "off"
+  }
 }

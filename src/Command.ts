@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method */
-import { assertType, getType } from '@xhmm/utils';
+import { assertType, type } from '@xhmm/utils';
 import { Message, CQMessageFromTypeHelper } from './CQHelper';
 import { HttpPlugin } from './HttpPlugin';
 import { HistoryMessage } from './Session';
@@ -32,7 +32,7 @@ export enum TriggerScope {
 export enum MessageFromType {
   'userFriend' = 'userFriend',
   'userGroup' = 'userGroup',
-  'userOther' = 'userOther',
+  'userOther' = 'userOther', // cqhttp文档有个这类型，but not clear what exactly it is
 
   'qqGroupNormal' = 'qqGroupNormal',
   'qqGroupAnonymous' = 'qqGroupAnonymous',
@@ -51,8 +51,9 @@ export interface RequestIdentity {
 export interface AnonymousUser {
   id: number;
   name: string;
-  flag: string; // 这个字段每次发消息都是会变的，会使session key每次不一致，故在genSessionKey中要判断处理
+  flag: string; // 这个字段每次发消息都是会变的，在生成session key时须对其移除
 }
+
 export interface UserMessageInfo extends RequestIdentity {
   messageFromType:
     | MessageFromType.userFriend
@@ -72,18 +73,21 @@ export interface QQGroupAnonymousMessageInfo extends RequestIdentity {
   fromGroup: number;
 }
 
+
+//// 类特殊函数
 interface BaseParams {
   message: Message[];
   rawMessage: string;
   requestBody: any;
 }
-type SetNextFn = (sessionFunctionName: string, expireSeconds?: number) => Promise<void>; // 设置session name和过期时间
-type SetEndFn = () => Promise<void>; // 删除session
 
 // parse函数
 export interface ParseParams extends BaseParams, RequestIdentity {}
-export type ParseReturn = any;
 
+// 用于设置session name和过期时间
+type SetNextFn = (sessionFunctionName: string, expireSeconds?: number) => Promise<void>;
+// 用于删除session
+type SetEndFn = () => Promise<void>;
 interface HandlerBaseParams extends BaseParams {
   setNext: SetNextFn;
 }
@@ -91,6 +95,7 @@ interface HandlerBaseParams extends BaseParams {
 export interface UserHandlerParams<D = unknown> extends HandlerBaseParams, UserMessageInfo {
   data: D;
 }
+
 // group函数
 interface GroupHandlerBaseParams<D = unknown> extends HandlerBaseParams {
   isAt: boolean;
@@ -98,15 +103,19 @@ interface GroupHandlerBaseParams<D = unknown> extends HandlerBaseParams {
 }
 export type GroupHandlerParams<D = unknown> = GroupHandlerBaseParams<D> &
   (QQGroupAnonymousMessageInfo | QQGroupNormalMessageInfo);
+
 // both函数
 export interface BothHandlerParams<D = unknown> extends HandlerBaseParams, RequestIdentity {
   data: D;
 }
+
 // session函数
 export interface SessionHandlerParams extends HandlerBaseParams {
   setEnd: SetEndFn;
   historyMessage: HistoryMessage;
 }
+
+type HandlerParams = UserHandlerParams | GroupHandlerParams | BothHandlerParams;
 // return
 export type HandlerReturn =
   | {
@@ -116,73 +125,79 @@ export type HandlerReturn =
   | string[]
   | string
   | void;
+
+export type ParseReturn = any;
 export type UserHandlerReturn = HandlerReturn;
 export type GroupHandlerReturn = HandlerReturn;
 export type BothHandlerReturn = HandlerReturn;
 export type SessionHandlerReturn = HandlerReturn;
+//// 类特殊函数END
 
 export abstract class Command<C = unknown, D = unknown> {
-  static blackList = [
-    'scope',
-    'directives',
-    'context',
-    'httpPlugin',
-    'includeGroup',
-    'excludeGroup',
-    'includeUser',
-    'excludeUser',
-    'triggerType',
-    'triggerScope',
-  ];
-  // 下述属性是在node启动后被注入给了实例对象，之后不会再改变
-  scope: Scope; // // [在该类构造函数内被注入] 使用该属性来判断该命令的作用域
-  directives: string[]; // [在create阶段使用该类Command.normalizeDirectives函数被注入]
-  context: C; // [在create阶段被注入] 值为create时传入的内容，默认为null
-  httpPlugin: HttpPlugin; // [在create阶段被注入] 值为create时传入的内容
+  context: C; // 值为create时传入的内容
+  httpPlugin: HttpPlugin; // 值为create时传入的内容
 
-  includeGroup?: number[]; // 给group函数使用@include注入
-  excludeGroup?: number[]; // 给group函数使用@exclude注入
-  includeUser?: number[]; // 给user函数使用@include注入
-  excludeUser?: number[]; // 给user函数使用@exclude注入
-  triggerType?: TriggerType; // 给group/both使用@trigger进行设置，默认按at处理。请勿对其赋值，会导致修饰器无效！！！
-  triggerScope?: TriggerScope;
+  private _scope: Scope; // 该命令的作用域
+  private _directives: string[]; // 该命令的指令名称
+
+  private _includeGroup: number[] = []; // @include
+  private _excludeGroup: number[] = []; // @exclude
+  private _includeUser: number[] = []; // @include
+  private _excludeUser: number[] = []; // @exclude
+  private _triggerType: TriggerType = TriggerType.at; // @trigger
+  private _triggerScope: TriggerScope = TriggerScope.all; // @scope
 
   constructor() {
     if (this.directive) assertType(this.directive, 'function');
     if (this.parse) assertType(this.parse, 'function');
-    if (!this.directive && !this.parse) throw new Error('请为Command的继承类提供directive函数或parse函数');
-    const hasUserHandler = getType(this.user) === 'function';
-    const hasGroupHandler = getType(this.group) === 'function';
-    const hasBothHandler = getType(this.both) === 'function';
+    if (!this.directive && !this.parse) throw new Error('必须为Command类提供directive函数或parse函数');
 
-    if (hasBothHandler) this.scope = Scope.both;
-    else if (hasGroupHandler && hasUserHandler) this.scope = Scope.both;
+    const hasUserHandler = type(this.user) === 'function';
+    const hasGroupHandler = type(this.group) === 'function';
+    const hasBothHandler = type(this.both) === 'function';
+    if (hasBothHandler) this._scope = Scope.both;
+    else if (hasGroupHandler && hasUserHandler) this._scope = Scope.both;
     else {
-      if (!hasUserHandler && !hasGroupHandler) throw new Error('为Command的继承类提供user函数或group函数或both函数');
-      if (hasGroupHandler) this.scope = Scope.group;
-      if (hasUserHandler) this.scope = Scope.user;
+      if (!hasUserHandler && !hasGroupHandler) throw new Error('必须为Command类提供user函数或group函数或both函数');
+      if (hasGroupHandler) this._scope = Scope.group;
+      if (hasUserHandler) this._scope = Scope.user;
     }
+
+    const defaultDirective = new.target.name + 'Default';
+    if (type(this.directive) === 'function') {
+      const directives = this.directive!();
+      if (type(directives) === 'array' || directives.length !== 0) {
+        this._directives = directives;
+        return;
+      } else this._directives = [defaultDirective];
+    } else this._directives = [defaultDirective];
   }
 
-  public static validate(cmd: Command): void {
-    if (!cmd.constructor) throw new Error('请继承Command类并传入实例对象');
-    if (Object.getPrototypeOf(cmd.constructor) !== Command) throw new Error('请继承Command类并传入实例对象');
 
-    if (cmd.parse) assertType(cmd.parse, 'function');
-    if (cmd.group) assertType(cmd.group, 'function');
-    if (cmd.user) assertType(cmd.user, 'function');
-    if (cmd.both) assertType(cmd.both, 'function');
+  get scope(): Scope {
+    return this._scope;
+  }
+  get directives(): string[] {
+    return this._directives;
+  }
 
-    if (!cmd.both && !cmd.group && !cmd.user) throw new Error('请至少实现一个处理函数：both、group、user');
-
-    const defaultDirective = cmd.constructor.name + 'Default';
-    if (typeof cmd.directive === 'function') {
-      const directives = cmd.directive();
-      if (getType(directives) === 'array' || directives.length !== 0) {
-        cmd.directives = directives;
-        return;
-      } else cmd.directives = [defaultDirective];
-    } else cmd.directives = [defaultDirective];
+  get excludeGroup(): number[] {
+    return this._excludeGroup;
+  }
+  get includeGroup(): number[] {
+    return this._includeGroup;
+  }
+  get includeUser(): number[] {
+    return this._includeUser;
+  }
+  get excludeUser(): number[] {
+    return this._excludeUser;
+  }
+  get triggerType(): TriggerType {
+    return this._triggerType;
+  }
+  get triggerScope(): TriggerScope {
+    return this._triggerScope;
   }
 
   directive?(): string[];
@@ -193,58 +208,65 @@ export abstract class Command<C = unknown, D = unknown> {
   both?(params: BothHandlerParams<D>): OrPromise<HandlerReturn>;
 }
 
-// ------------------------------------------------------------------------
-// -------------------------------- 修饰器 ---------------------------------
-// ------------------------------------------------------------------------
-// 用于user和group。指定该选项时，只有这里面的qq/qq群可触发该命令
-// TODO: 后期改为可接受(异步)函数
+//// 修饰器
+/**
+ * @description 用于user和group函数。指定该选项时，只有这里面的qq/qq群可触发该命令
+ * @param include qq/qq群号
+ */
 export function include(include: number[]) {
-  return function(proto, name, descriptor) {
+  return function(proto, name) {
     if (name === 'group') {
-      if ('excludeGroup' in proto) throw new Error('exclude and include decorators cannot used at the same time');
-      proto.includeGroup = include;
+      if ('_excludeGroup' in proto) throw new Error('@exclude and @include cannot used at the same time');
+      proto._includeGroup = include;
     } else if (name === 'user') {
-      if ('excludeUser' in proto) throw new Error('exclude and include decorators cannot used at the same time');
-      proto.includeUser = include;
-    } else warn('include decorator only works with user or group function');
+      if ('_excludeUser' in proto) throw new Error('@exclude and @include cannot used at the same time');
+      proto._includeUser = include;
+    } else warn('@include only works on user or group function');
   };
 }
-// 用于user和group。指定该选项时，这里面的qq/qq群不可触发该命令。
+
+/**
+ * @description 用于user和group函数。指定该选项时，这里面的qq/qq群不可触发该命令。
+ * @param exclude qq/qq群号
+ */
 export function exclude(exclude: number[]) {
   return function(proto, name, descriptor) {
     if (name === 'group') {
-      if ('includeGroup' in proto) throw new Error('exclude and include decorators cannot used at the same time');
-      proto.excludeGroup = exclude;
+      if ('_includeGroup' in proto) throw new Error('@exclude and @include cannot used at the same time');
+      proto._excludeGroup = exclude;
     } else if (name === 'user') {
-      if ('includeUser' in proto) throw new Error('exclude and include decorators cannot used at the same time');
-      proto.excludeUser = exclude;
-    } else console.warn('exclude decorator only works with user or group function');
+      if ('_includeUser' in proto) throw new Error('@exclude and @include cannot used at the same time');
+      proto._excludeUser = exclude;
+    } else console.warn('@exclude only works on user or group function');
   };
 }
-// 用于group和both。设置群组内命令触发方式
+
+/**
+ * @description 用于group和both函数。设置群组内命令触发方式
+ * @param type 触发方式
+ */
 export function trigger(type: TriggerType) {
-  return function(proto, name, descriptor) {
+  return function(proto, name) {
     if (name !== 'group' && name !== 'both') {
-      warn('trigger decorator only works with group or both function.');
-    } else proto.triggerType = type;
+      warn('@trigger only works on group or both function');
+    } else proto._triggerType = type;
   };
 }
-// 用于group和both。设置群组内什么身份可触发命令
+
+/**
+ * @description 用于group和both函数。设置群组内什么身份可触发命令
+ * @param role 群员身份
+ */
 export function scope(role: TriggerScope) {
   return function(proto, name, descriptor) {
     if (name !== 'group' && name !== 'both') {
-      warn('trigger decorator only works with group or both function.');
-    } else proto.triggerScope = role;
+      warn('@trigger only works on group or both function');
+    } else proto._triggerScope = role;
   };
 }
-// ------------------------------------------------------------------------
-// ------------------------------------------------------------------------
-// ------------------------------------------------------------------------
+//// 修饰器END
 
-// ------------------------------------------------------------------------
-// ------------------------------ type guard-------------------------------
-// ------------------------------------------------------------------------
-type HandlerParams = UserHandlerParams | GroupHandlerParams | BothHandlerParams;
+//// type guard
 // 用户消息
 export function fromUserMessage(p: HandlerParams): p is UserHandlerParams {
   return CQMessageFromTypeHelper.isUserMessage(p.messageFromType);
@@ -265,6 +287,4 @@ export function fromQQGroupAnonymousMessage(
 ): p is GroupHandlerBaseParams & QQGroupAnonymousMessageInfo {
   return CQMessageFromTypeHelper.isQQGroupAnonymousMessage(p.messageFromType);
 }
-// ------------------------------------------------------------------------
-// ------------------------------------------------------------------------
-// ------------------------------------------------------------------------
+//// type guard END

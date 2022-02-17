@@ -1,5 +1,8 @@
 <h1>🍋 Lemon-Bot</h1>
 
+cqhttp 4.15  
+nodejs todo
+
 一个基于酷Q和CoolQ HTTP API插件的QQ机器人Nodejs开发框架。
 
 - 支持多命令匹配、命令自定义解析
@@ -20,7 +23,7 @@
 
 ## 准备
 
-1. 安装 [nodejs](https://nodejs.org/en/download/) (该框架基于v10.16.3版本进行开发与测试)
+1. 安装 [nodejs](https://nodejs.org/en/download/)
 
 2. 安装 酷Q 和 HTTP插件：
 
@@ -105,7 +108,7 @@ robot.start(); // 启动
 在运行该代码前，请确保：
 
 - 酷Q和HTTP插件处于运行状态，且上述代码中的 `robot` 值为当前登录的机器人QQ
-- 安装要求修改了HTTP插件的配置文件
+- 按照要求修改了HTTP插件的配置文件
 
 然后在命令行内输入 `npx ts-node index.ts` 即可启动机器人。
 
@@ -137,7 +140,7 @@ Tips：下述涉及的类型定义和enum定义可直接前往源码内查看，
 | commands   | Command[]  | 需要注册的命令                                         |          |
 | session    | Session    | 传入该参数运行使用session函数                          | optional |
 | secret     | string     | 须和HTTP插件配置文件值保持一致，用于对上报数据进行验证 | optional |
-| context    | any        | 该属性会作为Command继承类的成员属性，默认值为null      | optional |
+| context    | any        | 该属性可在Command类中使用`this.context`访问     | optional |
 
 `CreateReturn`：该函数的返回值是一个对象，包含如下属性
 

@@ -12,7 +12,7 @@
     "declaration": true,
     "removeComments": true,
     "resolveJsonModule": true,
-    "sourceMap": true
+    "inlineSourceMap": true
   },
   "include": ["src"],
   "exclude": ["node_modules"]
